@@ -1,0 +1,41 @@
+/* Dashboard Section */
+
+.dashboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Panel (shared with other pages) */
+
+.dashboard-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.dashboard-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* Log placeholder */
+
+.dashboard-log-placeholder {
+  text-align: center;
+  padding: 1rem;
+}
+
+.dashboard-muted {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.dashboard-error-text {
+  color: var(--status-error);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}

@@ -1,0 +1,172 @@
+/* VPS Config Section */
+
+.vps-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Status panels side-by-side */
+.vps-status-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.vps-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.vps-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* Status details */
+.vps-status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vps-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.vps-status-label {
+  color: var(--text-secondary);
+}
+
+.vps-status-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.vps-ok {
+  color: var(--status-ok);
+}
+
+.vps-warn {
+  color: var(--status-warn);
+}
+
+.vps-err {
+  color: var(--status-error);
+}
+
+.vps-muted {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.vps-error-text {
+  color: var(--status-error);
+  font-size: 0.85rem;
+}
+
+/* Form grid */
+.vps-form {
+  margin-top: 0.5rem;
+}
+
+.vps-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.vps-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.vps-field-wide {
+  grid-column: 1 / -1;
+}
+
+.vps-field label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.vps-field input,
+.vps-field select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.vps-field input:focus,
+.vps-field select:focus {
+  border-color: var(--accent);
+}
+
+.vps-field input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.vps-input-error {
+  border-color: var(--status-error) !important;
+}
+
+.vps-field-error {
+  font-size: 0.75rem;
+  color: var(--status-error);
+}
+
+/* Actions */
+.vps-form-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.vps-submit-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vps-submit-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.vps-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.vps-submit-ok {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--status-ok);
+}
+
+.vps-submit-err {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--status-error);
+}

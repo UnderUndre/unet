@@ -1,0 +1,204 @@
+/* Ports Section */
+
+.ports-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ports-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.ports-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* Tunnel warning */
+
+.ports-tunnel-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--status-warn);
+  color: #1a1a1a;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.ports-warning-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Form */
+
+.ports-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ports-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ports-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.ports-form-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  min-width: 140px;
+}
+
+.ports-form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.ports-form-input:disabled {
+  opacity: 0.6;
+}
+
+.ports-form-error {
+  font-size: 0.85rem;
+  color: var(--status-error);
+}
+
+.ports-form-success {
+  font-size: 0.85rem;
+  color: var(--status-ok);
+}
+
+/* Table */
+
+.ports-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.ports-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ports-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.ports-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ports-table-mono {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.ports-table-muted {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Status badge */
+
+.ports-status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.ports-status-active {
+  background: rgba(46, 160, 67, 0.15);
+  color: var(--status-ok);
+}
+
+.ports-status-inactive {
+  background: rgba(150, 150, 150, 0.15);
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+
+.ports-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.ports-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ports-btn-add {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-start;
+}
+
+.ports-btn-add:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.ports-btn-delete {
+  background: transparent;
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.ports-btn-delete:hover:not(:disabled) {
+  background: var(--status-error);
+  color: #fff;
+}
+
+/* Utility */
+
+.ports-muted {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.ports-error-text {
+  color: var(--status-error);
+  font-size: 0.85rem;
+}

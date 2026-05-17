@@ -30,3 +30,17 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+node_modules/
+
+# Frontend build output (embedded in Go binary)
+src/web/dist/
+
+# Go build output
+src/unet
+src/unet.exe
+
+# clai-helpers (auto-managed by `clai-helpers init`)
+# staging directory for atomic writes
+.helpers/
+.worktrees/

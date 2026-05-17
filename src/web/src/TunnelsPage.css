@@ -1,0 +1,111 @@
+/* Tunnels Section */
+
+.tunnels-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.tunnel-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.tunnel-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* Status details */
+
+.tunnel-status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tunnel-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.tunnel-status-label {
+  color: var(--text-secondary);
+}
+
+.tunnel-status-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tunnel-muted {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.tunnel-error-text {
+  color: var(--status-error);
+  font-size: 0.85rem;
+}
+
+.tunnel-err {
+  color: var(--status-error);
+}
+
+/* Actions */
+
+.tunnel-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.tunnel-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.tunnel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tunnel-btn-connect {
+  background: var(--status-ok);
+  color: #fff;
+}
+
+.tunnel-btn-connect:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.tunnel-btn-disconnect {
+  background: var(--status-error);
+  color: #fff;
+}
+
+.tunnel-btn-disconnect:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.tunnel-action-ok {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--status-ok);
+}
+
+.tunnel-action-err {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--status-error);
+}
