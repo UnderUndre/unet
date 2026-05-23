@@ -3,11 +3,32 @@ import './DashboardPage.css'
 
 // --- Types ---
 
+interface VpsStatus {
+  configured: boolean
+  provisioned: boolean
+  host: string
+}
+
+interface TunnelStatus {
+  status: string
+  localIp?: string
+  serverIp?: string
+}
+
+interface PortInfo {
+  id: string
+  localPort: number
+  subdomain: string
+  protocol: string
+  status: string
+  createdAt?: string
+}
+
 interface ApiStatus {
   privileged: boolean
-  vps: string
-  tunnel: string
-  ports: number
+  vps: VpsStatus
+  tunnel: TunnelStatus
+  ports: PortInfo[]
   daemonPort: number
 }
 
@@ -73,22 +94,28 @@ function DashboardPage() {
 
   // --- Cards derived from status ---
 
+  const vpsLabel = status?.vps.provisioned
+    ? 'Provisioned'
+    : status?.vps.configured
+      ? 'Configured'
+      : 'Not configured'
+
   const cards: Array<{ label: string; value: string; severity: ReturnType<typeof statusToSeverity> }> = status
     ? [
         {
           label: 'VPS Status',
-          value: capitalize(status.vps),
-          severity: statusToSeverity(status.vps),
+          value: vpsLabel,
+          severity: status.vps.provisioned ? 'ok' : status.vps.configured ? 'warn' : 'none',
         },
         {
           label: 'Tunnel Status',
-          value: capitalize(status.tunnel),
-          severity: statusToSeverity(status.tunnel),
+          value: capitalize(status.tunnel.status || 'unknown'),
+          severity: statusToSeverity(status.tunnel.status || 'unknown'),
         },
         {
           label: 'Exposed Ports',
-          value: String(status.ports),
-          severity: status.ports > 0 ? 'ok' : 'none',
+          value: String(status.ports.length),
+          severity: status.ports.length > 0 ? 'ok' : 'none',
         },
         {
           label: 'Daemon Port',

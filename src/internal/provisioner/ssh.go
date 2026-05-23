@@ -138,10 +138,20 @@ type Client struct {
 }
 
 // NewClient creates a new SSH client wrapper for the given VPS config.
+// If host looks like an SSH config alias (no IP, not a DNS name), it attempts
+// to resolve HostName, User, Port, and IdentityFile from ~/.ssh/config.
 func NewClient(vps config.VPSConfig) (*Client, error) {
 	if err := validateHost(vps.Host); err != nil {
 		return nil, err
 	}
+
+	resolved, err := resolveSSHAlias(vps)
+	if err != nil {
+		slog.Debug("ssh: could not resolve SSH alias, using host as-is", "host", vps.Host, "err", err)
+	} else {
+		vps = *resolved
+	}
+
 	return &Client{cfg: vps}, nil
 }
 
@@ -357,4 +367,89 @@ func (c *Client) Close() error {
 // commands.
 func shellEscape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// resolveSSHAlias reads ~/.ssh/config and fills in HostName, User, Port,
+// and IdentityFile for the given alias if found. Returns a modified copy
+// of vps with the resolved values. Returns nil if no matching Host entry
+// is found (caller should use the original config as-is).
+func resolveSSHAlias(vps config.VPSConfig) (*config.VPSConfig, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	configPath := filepath.Join(home, ".ssh", "config")
+
+	f, err := os.Open(configPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	scanner := &lineScanner{reader: f}
+	inTarget := false
+	resolved := vps
+
+	for scanner.scan() {
+		line := strings.TrimSpace(scanner.text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		key := strings.ToLower(fields[0])
+		value := fields[1]
+
+		if key == "host" {
+			if inTarget {
+				break
+			}
+			if value == vps.Host {
+				inTarget = true
+			}
+			continue
+		}
+
+		if !inTarget {
+			continue
+		}
+
+		switch key {
+		case "hostname":
+			resolved.Host = value
+		case "user":
+			if resolved.Username == "" || resolved.Username == "root" {
+				resolved.Username = value
+			}
+		case "port":
+			if resolved.SSHPort == 0 || resolved.SSHPort == 22 {
+				n := 0
+				for _, c := range value {
+					if c >= '0' && c <= '9' {
+						n = n*10 + int(c-'0')
+					} else {
+						break
+					}
+				}
+				if n > 0 {
+					resolved.SSHPort = n
+				}
+			}
+		case "identityfile":
+			if resolved.PrivateKeyPath == "" {
+				p := value
+				if strings.HasPrefix(p, "~/") {
+					p = filepath.Join(home, p[2:])
+				}
+				resolved.PrivateKeyPath = p
+			}
+		}
+	}
+
+	if !inTarget {
+		return nil, fmt.Errorf("ssh: alias %q not found in %s", vps.Host, configPath)
+	}
+	return &resolved, nil
 }

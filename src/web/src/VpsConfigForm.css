@@ -170,3 +170,53 @@
   font-size: 0.85rem;
   color: var(--status-error);
 }
+
+.vps-host-wrapper {
+  position: relative;
+}
+
+.vps-host-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.vps-host-suggestion {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vps-host-suggestion:hover,
+.vps-host-suggestion-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.vps-host-suggestion-alias {
+  font-weight: 600;
+}
+
+.vps-host-suggestion-detail {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.vps-host-suggestion:hover .vps-host-suggestion-detail,
+.vps-host-suggestion-active .vps-host-suggestion-detail {
+  color: #fff;
+  opacity: 0.8;
+}

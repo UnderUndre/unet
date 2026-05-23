@@ -79,6 +79,8 @@ func main() {
 	portsHandler := daemon.NewPortsHandler(cfgMgr, caddyClient, dnsManager, srv)
 	portsHandler.RegisterRoutes()
 
+	srv.HandleFunc("GET /api/ssh/hosts", daemon.HandleSSHHosts)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

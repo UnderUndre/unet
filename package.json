@@ -3,6 +3,11 @@
     "underundre-clai-helpers": "^0.5.0"
   },
   "scripts": {
+    "build:web": "cd src/web && npm install && npm run build",
+    "build:go": "cd src && go build -o ../bin/unet.exe ./cmd/unet",
+    "build": "npm run build:web && npm run build:go",
+    "dev:web": "cd src/web && npm run dev",
+    "dev:go": "cd src && go run ./cmd/unet",
     "deploy": "bash scripts/deploy/deploy.sh",
     "deploy:fast": "bash scripts/deploy/deploy.sh --fast",
     "deploy:setup": "bash scripts/deploy/deploy.sh --setup-only",

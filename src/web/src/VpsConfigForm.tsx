@@ -1,5 +1,13 @@
-import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from 'react'
 import './VpsConfigForm.css'
+
+interface SshHostEntry {
+  host: string
+  hostName?: string
+  user?: string
+  port?: number
+  identityFile?: string
+}
 
 // --- Types ---
 
@@ -90,10 +98,17 @@ function VpsConfigForm() {
   const [vpsStatusError, setVpsStatusError] = useState<string | null>(null)
   const [apiStatusError, setApiStatusError] = useState<string | null>(null)
 
+  const [sshHosts, setSshHosts] = useState<SshHostEntry[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const hostRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+
   // Fetch statuses on mount
   useEffect(() => {
     fetchVpsStatus()
     fetchApiStatus()
+    fetchSSHHosts()
   }, [])
 
   // --- API helpers ---
@@ -125,6 +140,53 @@ function VpsConfigForm() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch API status'
       setApiStatusError(msg)
+    }
+  }
+
+  async function fetchSSHHosts() {
+    try {
+      const res = await fetch('/api/ssh/hosts')
+      if (!res.ok) return
+      const data: SshHostEntry[] = await res.json()
+      setSshHosts(data)
+    } catch {
+      // silently ignore
+    }
+  }
+
+  const filteredHosts = sshHosts.filter(h =>
+    h.host.toLowerCase().includes(formData.host.toLowerCase()) ||
+    (h.hostName && h.hostName.toLowerCase().includes(formData.host.toLowerCase()))
+  )
+
+  function selectHost(entry: SshHostEntry) {
+    setFormData(prev => ({
+      ...prev,
+      host: entry.host,
+      hostName: entry.hostName || entry.host,
+      sshPort: entry.port || 22,
+      username: entry.user || prev.username,
+      privateKeyPath: entry.identityFile || prev.privateKeyPath,
+    }))
+    setShowSuggestions(false)
+    setActiveSuggestion(-1)
+  }
+
+  function handleHostKeyDown(e: React.KeyboardEvent) {
+    if (!showSuggestions || filteredHosts.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveSuggestion(prev => (prev + 1) % filteredHosts.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveSuggestion(prev => (prev - 1 + filteredHosts.length) % filteredHosts.length)
+    } else if (e.key === 'Enter' && activeSuggestion >= 0) {
+      e.preventDefault()
+      selectHost(filteredHosts[activeSuggestion])
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      setActiveSuggestion(-1)
     }
   }
 
@@ -309,15 +371,42 @@ function VpsConfigForm() {
           <div className="vps-form-grid">
             <div className="vps-field">
               <label htmlFor="vps-host">Host *</label>
-              <input
-                id="vps-host"
-                name="host"
-                type="text"
-                value={formData.host}
-                onChange={handleChange}
-                placeholder="e.g. 203.0.113.50"
-                className={errors.host ? 'vps-input-error' : ''}
-              />
+              <div className="vps-host-wrapper">
+                <input
+                  ref={hostRef}
+                  id="vps-host"
+                  name="host"
+                  type="text"
+                  value={formData.host}
+                  onChange={(e) => {
+                    handleChange(e)
+                    setShowSuggestions(true)
+                    setActiveSuggestion(-1)
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={handleHostKeyDown}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  placeholder="e.g. my-server or 203.0.113.50"
+                  autoComplete="off"
+                  className={errors.host ? 'vps-input-error' : ''}
+                />
+                {showSuggestions && filteredHosts.length > 0 && (
+                  <div className="vps-host-suggestions" ref={suggestionsRef}>
+                    {filteredHosts.map((entry, idx) => (
+                      <div
+                        key={entry.host}
+                        className={`vps-host-suggestion ${idx === activeSuggestion ? 'vps-host-suggestion-active' : ''}`}
+                        onMouseDown={() => selectHost(entry)}
+                      >
+                        <span className="vps-host-suggestion-alias">{entry.host}</span>
+                        <span className="vps-host-suggestion-detail">
+                          {entry.hostName || entry.host}{entry.user ? ` (${entry.user})` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {errors.host && <span className="vps-field-error">{errors.host}</span>}
             </div>
 

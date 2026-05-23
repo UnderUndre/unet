@@ -112,7 +112,7 @@ func (h *VPSHandler) handleVPSConfigure(w http.ResponseWriter, r *http.Request) 
 		Status: "provisioning",
 	}
 
-	go h.runProvision(r.Context(), taskID)
+	go h.runProvision(context.Background(), taskID)
 
 	slog.Info("api: VPS configure accepted", "taskId", taskID, "host", req.Host)
 
