@@ -108,10 +108,14 @@ func (p *LocalTCPProxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// Bidirectional copy.
 	go func() {
 		io.Copy(targetConn, clientConn)
-		targetConn.CloseWrite()
+		if tc, ok := targetConn.(*net.TCPConn); ok {
+			tc.CloseWrite()
+		}
 	}()
 	io.Copy(clientConn, targetConn)
-	clientConn.CloseWrite()
+	if tc, ok := clientConn.(*net.TCPConn); ok {
+		tc.CloseWrite()
+	}
 }
 
 // Stop gracefully shuts down the proxy.

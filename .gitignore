@@ -44,3 +44,5 @@ src/unet.exe
 # staging directory for atomic writes
 .helpers/
 .worktrees/
+
+src/bin/
