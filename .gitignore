@@ -46,3 +46,4 @@ src/unet.exe
 .worktrees/
 
 src/bin/
+.remember/

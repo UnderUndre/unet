@@ -37,9 +37,14 @@ func NewAWGCli() (*AWGCli, error) {
 
 	quick, err := exec.LookPath("awg-quick")
 	if err != nil {
-		return nil, fmt.Errorf("tunnel: awg-quick not found on PATH: %w", err)
+		if runtime.GOOS == "windows" {
+			slog.Info("tunnel: awg-quick not found on Windows (expected, uses GUI/service client)")
+		} else {
+			return nil, fmt.Errorf("tunnel: awg-quick not found on PATH: %w", err)
+		}
+	} else {
+		c.QuickPath = quick
 	}
-	c.QuickPath = quick
 
 	awg, err := exec.LookPath("awg")
 	if err != nil {

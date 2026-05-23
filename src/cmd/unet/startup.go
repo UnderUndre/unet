@@ -42,8 +42,13 @@ func checkPrivilegesPOSIX() {
 }
 
 // CheckAwgPath verifies that awg-quick (AmneziaWG) is installed and reachable
-// on the current PATH. Exits with a clear installation hint if not found.
+// on the current PATH. On Windows the AmneziaWG client uses a GUI/service
+// model (wintun) and does not ship awg-quick, so the check is skipped.
 func CheckAwgPath() {
+	if runtime.GOOS == "windows" {
+		slog.Info("awg-quick check skipped on Windows (uses GUI/service client)")
+		return
+	}
 	path, err := exec.LookPath("awg-quick")
 	if err != nil {
 		slog.Error("awg-quick not found on PATH")
