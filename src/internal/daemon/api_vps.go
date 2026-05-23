@@ -248,10 +248,7 @@ func buildPortInfos(cfg *config.RootConfig) []portInfo {
 // isPrivileged returns true if the current process is running with
 // elevated privileges (root on POSIX, admin on Windows).
 func isPrivileged() bool {
-	// Simple check: can we create a raw socket or equivalent.
-	// On POSIX, uid 0 means privileged.
-	uid := os.Getuid()
-	return uid == 0
+	return checkPrivileged()
 }
 
 // writeError writes a standardised JSON error response.

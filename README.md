@@ -83,7 +83,7 @@ go build -o bin/unet ./cmd/unet
 sudo ./bin/unet
 
 # Windows — run as Administrator
-.\src\unet.exe
+.\src\bin\unet.exe
 ```
 
 Open `http://localhost:8080` in your browser.
