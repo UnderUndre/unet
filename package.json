@@ -3,7 +3,8 @@
     "underundre-clai-helpers": "^0.5.0"
   },
   "scripts": {
-    "build:web": "cd src/web && npm install && npm run build",
+    "install:all": "npm install && cd src/web && npm install",
+    "build:web": "npm run install:web && npm run build",
     "build:go": "cd src && go build -o ../bin/unet.exe ./cmd/unet",
     "build": "npm run build:web && npm run build:go",
     "dev:web": "cd src/web && npm run dev",
