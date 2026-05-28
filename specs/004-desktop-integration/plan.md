@@ -1,7 +1,7 @@
 # Implementation Plan: Desktop Integration
 
 ## Technical Context
-- **Target**: `unet-tray.exe` as a separate Go binary communicating with `unet.exe` daemon over `localhost:8080/api/`.
+- **Target**: `unet-tray.exe` as a separate Go binary communicating with `unet.exe` daemon over `localhost:<PORT>/api/`. Port discovered from daemon config file (`%LOCALAPPDATA%\unet\config.json`) or `UNET_DAEMON_PORT` env var, defaulting to 8080.
 - **Dependencies**: `fyne.io/systray` (tray icon/menu), `github.com/go-toast/toast` (notifications), `golang.org/x/sys/windows/registry` (autostart).
 - **Process Model**: `unet-tray.exe` is the UI, `unet.exe` is the background daemon.
 
@@ -24,12 +24,20 @@
 - `network_monitor.go`: 2s polling loop checking reachability to VPS.
 
 ### 3. `internal/trayapi`
-- HTTP client wrappers to interact with the daemon's existing `localhost:8080/api/`.
-- Methods: `GetStatus()`, `Connect()`, `Disconnect()`, `GetPorts()`.
+- HTTP client wrappers to interact with the daemon's localhost API.
+- Port discovery: read from daemon config → env var → default 8080.
+- Client-side timeouts: 5s for status/health, 10s for connect/disconnect.
+- Methods: `GetStatus()`, `Connect()`, `Disconnect()`, `GetPorts()`, `GetEvents(limit, cursor)`.
 
 ### 4. `internal/traylogic`
 - State machine bridging the `NetworkMonitor`, `Tray` UI, and `trayapi`.
 - Handles exponential backoff reconnect logic.
+- Singleton guard: named mutex `Local\unet-tray-singleton` on startup — abort if already held.
+
+### 5. Daemon-side extensions (daemon repo)
+- `POST /api/v1/settings/autostart` — enable/disable autostart from admin UI (extends spec 002).
+- `GET /api/v1/events?limit=N&after=<cursor>` — structured event log with pagination, ring buffer retention (1000 events).
+- `.graceful_exit` sentinel: daemon writes `%LOCALAPPDATA%\unet\.graceful_exit` on clean shutdown, deleted on startup.
 
 ## Verification Plan
 1. Compile `unet-tray.exe`.

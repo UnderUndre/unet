@@ -5,15 +5,25 @@
 **Status**: Draft
 **Input**: Desktop UX for unet — system tray, autostart, OS notifications, automatic reconnect on network change. Daemon currently runs in foreground from terminal; no tray, no autostart, no awareness of WiFi/4G transitions. Unusable as daily-driver for non-technical users.
 
+## Terminology
+
+| Term | Meaning |
+|---|---|
+| **Tray** | The `unet-tray.exe` process — the UI layer |
+| **Tray icon** | The visual element in the system tray area |
+| **Tray menu** | The right-click context menu (interaction surface) |
+| **Daemon** | The `unet.exe` background process managing WireGuard tunnels |
+| **VPS health** | VPS endpoint is reachable AND responding to health checks |
+
 ## Clarifications
 
 ### Session 2026-05-27
 
 - Q: Tray library choice? → **Decision: `fyne.io/systray`** — Actively maintained fork of getlantern/systray; Win+macOS+Linux coverage with minimal deps.
-- Q: Windows notification mechanism? → A: [NEEDS CLARIFICATION: Modern Toast notifications (Windows 10+, via `go-toast/toast` or COM `IToastNotificationManager`) vs legacy balloon tips (XP+). Recommendation: Toast (Windows 10+). Minimum version baseline: Windows 10 1809+. AmneziaWG itself requires Win10+, so no legacy constraint conflict.]
+- Q: Windows notification mechanism? → **Decision: `github.com/go-toast/toast` for P1** — Modern Toast notifications (Windows 10+). Minimum version baseline: Windows 10 1809+. AmneziaWG itself requires Win10+, so no legacy constraint conflict. PowerShell dependency accepted; fallback to Win32 balloon tips if PowerShell unavailable.
 - Q: Tray process model? → **Decision: Separate executable communicating via daemon HTTP API** — Crash isolation, independent updates, clean separation of concerns; daemon stays headless-friendly.
 - Q: Autostart mechanism on Windows? → **Decision: Registry HKCU Run** — No UAC prompt, user-scope, industry-standard for desktop tools (Discord, Slack); simple launch semantics suffice.
-- Q: Network change detection scope? → A: [NEEDS CLARIFICATION: per-interface change events (WiFi adapter up/down, Ethernet plug/unplug) or global default-route reachability only? Per-interface is more granular but noisier. Global default-route is sufficient for tunnel reconnect decisions — the tunnel only cares about "can I reach the VPS endpoint." Recommendation: monitor default-route reachability as P1; per-interface events as diagnostic log enrichment (P2).]
+- Q: Network change detection scope? → **Decision: Monitor default-route reachability as P1** — The tunnel only cares about "can I reach the VPS endpoint." Per-interface events as diagnostic log enrichment (P2).
 - Q: macOS/Linux parity timeline? → **Decision: Within this same spec (Win impl as P1, macOS/Linux as P2/P3)** — Designing abstraction now prevents costly retrofit; impl can be staged but the interface is defined once.
 
 ### Session 2026-05-27 (round 1)
@@ -140,16 +150,17 @@ As a future contributor, I want the tray implementation to use a well-defined pl
 
 ### Edge Cases
 
-- **Active VPN interference**: User has another VPN (e.g., Mullvad, corporate VPN) active when network changes. Our network change detection MUST distinguish between "my network changed" and "a VPN adapter appeared/disappeared". Filter events by adapter type or monitor only the default route's upstream interface. [NEEDS CLARIFICATION: should we detect VPN interference and warn the user, or silently handle it?]
+- **Active VPN interference**: User has another VPN (e.g., Mullvad, corporate VPN) active when network changes. Our network change detection MUST distinguish between "my network changed" and "a VPN adapter appeared/disappeared". Filter events by adapter type or monitor only the default route's upstream interface. Silently handle — if default route is reachable, attempt connection regardless of other VPNs.
 - **Multiple simultaneous adapter changes**: WiFi disconnects AND Ethernet connects in the same event batch. Network monitor must handle batched events gracefully — not trigger multiple reconnect sequences. Debounce: coalesce events within 500ms window.
-- **Tray crashes while daemon healthy**: Tray process exits unexpectedly (user killed it, OOM, bug). Daemon MUST continue running unaffected. Tray restart path: user re-launches `unet-tray.exe` manually, OR daemon re-spawns if started with `--with-tray`. [NEEDS CLARIFICATION: should daemon auto-respawn a crashed tray? If yes, with what backoff/cap?]
+- **Tray crashes while daemon healthy**: Tray process exits unexpectedly (user killed it, OOM, bug). Daemon MUST continue running unaffected. Tray restart path: user re-launches `unet-tray.exe` manually. Daemon does NOT auto-respawn tray (deferred/out of scope).
 - **Daemon crashes while tray healthy**: Daemon process exits (panic, killed, updated). Tray MUST detect daemon absence (health check ping to localhost API fails) and display red icon + "Daemon stopped" message. Tray offers "Restart daemon" menu item. If user consents, tray re-launches daemon binary.
 - **User manually killed daemon**: Tray detects daemon death. Tray MUST show "Daemon stopped" but MUST NOT auto-restart without explicit user consent (menu click). This prevents unwanted resource consumption if the user intentionally stopped the daemon.
 - **Hibernate/sleep wake-up**: Laptop wakes from sleep. Network adapter reports "connected" but default route is unreachable for 5-10s (DHCP renewal, ARP resolution). Network monitor MUST wait for actual reachability (e.g., ping VPS endpoint or gateway) before declaring "network up". Premature reconnect attempt on stale route wastes time and generates spurious error notifications.
-- **Fast user switching**: User A has unet running. User B switches in via Windows fast user switch. Both desktops share the same network stack. Tray should NOT run twice. [NEEDS CLARIFICATION: per-user tray instance OK (each user session gets its own tray), or single global instance? Recommendation: per-user is fine — each user session has its own tray, daemon is user-scoped.]
-- **Daemon binary updated while tray running**: Auto-update or manual replace. Tray detects binary change (path or hash mismatch). Must not launch stale binary on restart. [NEEDS CLARIFICATION: auto-update is out of scope for this spec, but tray should detect version mismatch and prompt "daemon updated, restart now?"]
+- **Fast user switching**: User A has unet running. User B switches in via Windows fast user switch. Both desktops share the same network stack. Per-user tray instance is acceptable — each user session gets its own tray, daemon is user-scoped.
+- **Daemon binary updated while tray running**: Auto-update or manual replace. Tray detects binary change (path or hash mismatch). Must not launch stale binary on restart. Tray detects version mismatch and prompts "daemon updated, restart now?" Auto-update itself is out of scope for this spec.
 - **Tray launched without daemon running**: Standalone tray start. Tray shows red icon, "Daemon not running" status, offers "Start daemon" menu action. No error dialogs.
-- **RDP/remote desktop session**: Tray runs in RDP session. Network change events may not fire as expected. Notifications should still work via RDP channel. [NEEDS CLARIFICATION: is RDP a supported scenario or documented limitation?]
+- **RDP/remote desktop session**: Tray runs in RDP session. Network transitions inside RDP sessions might not fire standard events. Best effort support. Documented limitation — not a guaranteed scenario.
+
 
 ## Requirements *(mandatory)*
 
@@ -161,7 +172,7 @@ As a future contributor, I want the tray implementation to use a well-defined pl
   - **Green** (connected): tunnel established, VPS reachable, at least one handshake within last 75s (3 × PersistentKeepalive).
   - **Yellow** (connecting/transient): tunnel connection in progress, reconnect in backoff, or network change detected but reconnect not yet attempted.
   - **Red** (disconnected/error): tunnel down, VPS unreachable, or daemon not running.
-  - State transitions MUST update the icon within 1s of the underlying state change. [NEEDS CLARIFICATION: embed icons as PNG in binary (Go `embed`) or use system icons? Recommendation: embed custom icons for brand consistency. Provide 16×16 and 32×32 variants for DPI scaling.]
+  - State transitions MUST update the icon within 1s of the underlying state change. Icons embedded as PNG in binary via Go `embed` — 16×16 and 32×32 variants for DPI scaling.
 - **FR-002**: Tray icon MUST display a tooltip on hover showing: tunnel status, active VPS name/host, number of exposed routes, and daemon uptime. Tooltip MUST update within 2s of state change.
 
 **Tray Context Menu (P1)**:
@@ -185,31 +196,32 @@ As a future contributor, I want the tray implementation to use a well-defined pl
   - Tunnel error (persistent, >3 failed reconnects): "unet: cannot reach VPS — check network"
   - Daemon crashed (detected by tray): "unet: daemon stopped"
   - Notification throttling: max 1 notification per event type per 60s. During exponential backoff, only the first disconnect and final outcome (connected or persistent error) generate notifications — no per-attempt spam.
-- **FR-006**: On Windows, notifications MUST use the modern Toast notification API (Windows 10+). On future platforms: macOS `NSUserNotificationCenter` (deprecated 11+) → `UNUserNotificationCenter` (macOS 11+), Linux `libnotify` via D-Bus. Platform abstraction via `platform.Notifier` interface.
+- **FR-006**: On Windows, notifications MUST use the modern Toast notification API (Windows 10+) via `github.com/go-toast/toast`. **System requirement**: PowerShell must be available (go-toast invokes PowerShell under the hood). If PowerShell is unavailable (e.g., disabled via Group Policy), fall back to Win32 `Shell_NotifyIcon` balloon tips. On future platforms: macOS `UNUserNotificationCenter` (macOS 11+), Linux `libnotify` via D-Bus. Platform abstraction via `platform.Notifier` interface.
 
 **Autostart (P2)**:
 
 - **FR-007**: The tray MUST provide autostart management:
-  - **Enable**: Write entry to Windows Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` with key name `unet` and value = absolute path to daemon binary (or tray binary, depending on process model). User-scope only — no UAC elevation required.
+  - **Enable**: Write entry to Windows Registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` with key name `unet` and value = quoted absolute path to tray binary (e.g., `"C:\Users\user\AppData\Local\unet\unet-tray.exe"`). User-scope only — no UAC elevation required. Path MUST be quoted to handle spaces.
   - **Disable**: Delete the Registry entry.
   - **Sync on start**: On tray launch, verify Registry entry matches current binary path. If binary moved (common during updates), update the entry silently.
   - **Admin UI parity**: Autostart toggle MUST also be accessible from the admin web UI via `POST /api/settings/autostart` (depends on spec 002 control plane API, extend with settings endpoint).
-  - [NEEDS CLARIFICATION: should autostart launch the daemon binary directly or the tray binary? If tray binary is separate, autostart should launch tray (which then discovers/starts daemon). If daemon launches tray, autostart should launch daemon. Recommendation: autostart launches tray binary → tray discovers daemon (localhost API health check) → starts daemon if not running.]
+  - Autostart launches tray binary → tray discovers daemon (localhost API health check) → starts daemon if not running.
 
 **Network Change Detection and Auto-Reconnect (P1)**:
 
-- **FR-009**: The tray (or daemon, depending on process model) MUST detect network connectivity changes that affect the default route and trigger tunnel reconnect:
-  - **Windows P1**: Use Windows Network List Manager (NLM) COM API via Go `syscall`/`cgo` wrapper, OR poll default-route reachability every 2s (simpler, less fragile). [NEEDS CLARIFICATION: NLM COM vs polling. COM is event-driven (lower latency, no polling overhead) but requires CGO or pure Go COM bindings (`go-ole`). Polling is simpler but has inherent 2s worst-case detection latency. Recommendation: polling for P1 (simpler, acceptable latency for 10s reconnect SLA). NLM event-driven as P2 optimization.]
+- **FR-009**: The tray MUST detect network connectivity changes that affect the default route and trigger tunnel reconnect:
+  - **Windows P1**: Poll default-route reachability every 2s. Simple, acceptable latency for 10s reconnect SLA. NLM event-driven as P2 optimization.
   - **Detection scope**: Monitor default-route reachability (can we reach the VPS endpoint or a known-good gateway?). Per-interface events are logged for diagnostics but do not drive reconnect logic independently.
   - **Debounce**: Coalesce network events within 500ms window into a single reconnect trigger.
+  - **Confirmation**: Require **2 consecutive reachability failures** before triggering reconnect. Single transient packet loss (<2s) MUST NOT trigger a full `awg-quick down/up` cycle. Jitter poll interval by ±500ms to avoid thundering herd.
 - **FR-010**: On network change detection, the system MUST attempt automatic tunnel reconnect with exponential backoff:
-  - Initial delay: 1s after network change detected.
-  - Backoff multiplier: 2× (1s → 2s → 4s → 8s → 16s → 32s → 60s cap).
+  - Initial delay: 1s after network change confirmed (2 consecutive failures).
+  - Backoff multiplier: 2×, each step = min(prev×2, 60): `1 → 2 → 4 → 8 → 16 → 32 → 60(cap)`.
   - Cap: 60s between attempts.
   - Reset: backoff resets to 1s on successful connection.
   - Max attempts: unlimited (user must explicitly disconnect or quit to stop).
   - Reconnect MUST be a full `awg-quick down && awg-quick up` cycle, not a hot-reload attempt.
-- **FR-011**: The system MUST log every network change event (type, timestamp, affected interfaces, reconnect outcome) in a structured format for diagnostics. Log entries available via `GET /api/v1/events` (extends spec 002 control plane API) and written to daemon log file.
+- **FR-011**: The system MUST log every network change event (type, timestamp, affected interfaces, reconnect outcome) in a structured format for diagnostics. Log entries available via `GET /api/v1/events?limit=N&after=<cursor>` (extends spec 002 control plane API) and written to daemon log file. Pagination: default limit=100, max=1000. Retention: last 1000 events kept in ring buffer, older events discarded. Events endpoint is localhost-only — no authentication required.
 
 **Graceful Shutdown (P1)**:
 
@@ -226,20 +238,20 @@ As a future contributor, I want the tray implementation to use a well-defined pl
 **Tray ↔ Admin UI State Sync (P2)**:
 
 - **FR-013**: Tray state MUST stay synchronized with daemon state:
-  - Tray polls daemon API (`GET /api/status`) every 3s when connected, every 10s when disconnected.
-  - Daemon pushes state changes via WebSocket/SSE if available (future optimization, P3).
+  - Tray polls daemon API (`GET /api/status`) every 3s when connected, every 10s when disconnected. Client-side timeout: 5s per request.
+  - Daemon pushes state changes via WebSocket/SSE — deferred to spec 002 enhancement (P3). Polling is sufficient for v0.1.
   - Changes made in admin UI (expose port, disconnect tunnel) MUST reflect in tray within one poll cycle.
   - Tray actions (connect, disconnect, quit) MUST be reflected in admin UI within one poll cycle.
-  - [NEEDS CLARIFICATION: WebSocket/SSE push from daemon for real-time sync — is this in scope for this spec or deferred? Recommendation: deferred to spec 002 enhancement. Polling is sufficient for v0.1.]
 
 **Daemon Health Monitoring (P1)**:
 
 - **FR-014**: Tray MUST detect daemon process health:
-  - Health check: HTTP GET to `http://localhost:<PORT>/api/status` every 5s.
+  - Health check: HTTP GET to `http://localhost:<PORT>/api/status` every 5s. Client-side timeout: 5s per request.
   - Consecutive failures: after 3 failures (15s), declare daemon dead.
+  - Crash vs clean shutdown: daemon writes `.graceful_exit` sentinel file to `%LOCALAPPDATA%\unet\.graceful_exit` on clean shutdown. Tray checks sentinel: if present → clean quit (no auto-restart prompt); if absent → crash (offer restart). Sentinel is deleted on tray read.
   - On daemon death: tray icon → red, tooltip → "Daemon stopped", menu → "Restart daemon" item appears (replaces "Connect").
   - "Restart daemon" launches daemon binary and resumes health checking.
-  - If user manually killed daemon (detected via exit code or process signal): tray MUST NOT auto-restart. Only restart on explicit user click of "Restart daemon". [NEEDS CLARIFICATION: how does tray distinguish "crashed" from "user killed"? Option A: daemon writes a `graceful_exit` sentinel file on clean shutdown — tray checks for it. Option B: tray always requires manual restart regardless of cause. Recommendation: Option A — tray auto-restarts on crash (unexpected exit) but NOT on graceful shutdown (Quit, SIGTERM handled).]
+  - If user manually killed daemon (detected via `graceful_exit` sentinel present): tray MUST NOT auto-restart. Only restart on explicit user click of "Restart daemon".
 
 **Cross-Platform Abstraction (P3)**:
 
@@ -299,14 +311,18 @@ As a future contributor, I want the tray implementation to use a well-defined pl
 
 ## Open Questions
 
-1. **Resolved (2026-05-27 round 1)**: Tray library → `fyne.io/systray` — actively maintained, pure Go, cross-platform.
-2. [NEEDS CLARIFICATION: Windows notification: Toast via `go-toast/toast` vs raw COM `IToastNotificationManager` via `go-ole`]
-3. **Resolved (2026-05-27 round 1)**: Process model → separate executable via daemon HTTP API.
-4. **Resolved (2026-05-27 round 1)**: Autostart → Registry HKCU Run — no UAC, user-scope.
-5. [NEEDS CLARIFICATION: Network change detection — NLM COM events vs default-route polling (recommended for P1)]
-6. **Resolved (2026-05-27 round 1)**: macOS/Linux parity → within this same spec (P1=Win, P2/P3=macOS/Linux).
-7. [NEEDS CLARIFICATION: Daemon crash vs user-kill distinction — `graceful_exit` sentinel file (recommended) vs always-manual restart]
-8. [NEEDS CLARIFICATION: Tray auto-respawn by daemon — should daemon re-launch tray if tray crashes? With what backoff?]
-9. [NEEDS CLARIFICATION: RDP session support — supported scenario or documented limitation?]
-10. [NEEDS CLARIFICATION: VPN interference — detect and warn, or silently handle?]
-11. [NEEDS CLARIFICATION: WebSocket/SSE push for tray↔daemon real-time sync — in this spec or deferred?]
+All questions resolved. See research.md for detailed rationale.
+
+| # | Question | Decision | Source |
+|---|---|---|---|
+| 1 | Tray library | `fyne.io/systray` | Clarification round 1 |
+| 2 | Windows notification | `go-toast/toast` (Toast API) with balloon-tip fallback | research.md |
+| 3 | Process model | Separate executable via daemon HTTP API | Clarification round 1 |
+| 4 | Autostart mechanism | Registry HKCU Run — no UAC, user-scope | Clarification round 1 |
+| 5 | Network change detection | Default-route polling every 2s | research.md |
+| 6 | macOS/Linux parity | Within this spec (P1=Win, P2/P3=macOS/Linux) | Clarification round 1 |
+| 7 | Daemon crash vs user-kill | `.graceful_exit` sentinel file in `%LOCALAPPDATA%\unet\` | research.md |
+| 8 | Tray auto-respawn by daemon | Deferred/out of scope | research.md |
+| 9 | RDP session support | Documented limitation (best effort) | research.md |
+| 10 | VPN interference | Silently handle via default-route monitoring | research.md |
+| 11 | WebSocket/SSE push | Deferred to spec 002 enhancement (P3) | research.md |
