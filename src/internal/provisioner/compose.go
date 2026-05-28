@@ -42,6 +42,9 @@ var composeTmpl = template.Must(template.New("compose").Parse(`services:
     restart: unless-stopped
 
   unet-amnezia-awg:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: unet/amnezia-awg:local
     container_name: unet-amnezia-awg
     network_mode: "service:unet-net-pause"

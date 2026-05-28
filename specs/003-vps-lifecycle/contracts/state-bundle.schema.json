@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unet.underhelpers.dev/schemas/state-bundle-manifest/v1",
+  "title": "StateBundleManifest",
+  "description": "Schema for the JSONL header record (first line) of a unet StateBundle .jsonl.age file. The entire file is age-encrypted; this schema describes the decrypted manifest line only.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "manifest",
+      "description": "Record type discriminator — always 'manifest' for the header line."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
+      "description": "Semantic version of the bundle format (semver)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the bundle was created."
+    },
+    "sourceHost": {
+      "type": "string",
+      "description": "Hostname or IP address of the VPS that produced this bundle."
+    },
+    "daemonVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
+      "description": "Semantic version of the unet daemon that created the bundle."
+    },
+    "exportId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUIDv4 unique identifier for this export operation."
+    },
+    "peerCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of WireGuard peers included in the bundle payload."
+    },
+    "routeCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of ingress route entries included in the bundle payload."
+    },
+    "tokenCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of API token stubs included in the bundle payload."
+    },
+    "auditEntryCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of audit log entries included in the bundle payload."
+    },
+    "payloadHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 hex digest of the payload JSONL line (line 2) — enables post-decryption integrity verification."
+    },
+    "payloadSizeBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Size of the decrypted payload line in bytes."
+    },
+    "encryption": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "age-v1",
+          "description": "Encryption algorithm used for the .jsonl.age file."
+        },
+        "kdf": {
+          "type": "string",
+          "const": "scrypt",
+          "description": "Key derivation function used to derive the encryption key from the passphrase."
+        }
+      },
+      "required": ["algorithm", "kdf"],
+      "additionalProperties": false,
+      "description": "Encryption metadata describing how the bundle is protected."
+    }
+  },
+  "required": [
+    "type",
+    "version",
+    "createdAt",
+    "sourceHost",
+    "daemonVersion",
+    "exportId",
+    "peerCount",
+    "routeCount",
+    "payloadHash"
+  ],
+  "additionalProperties": false
+}

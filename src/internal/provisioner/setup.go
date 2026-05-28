@@ -62,6 +62,7 @@ func Provision(ctx context.Context, mgr *config.Manager) (*ProvisionResult, erro
 	dfCfg := DockerfileConfig{
 		Subnet:          awgCfg.Subnet,
 		AWGToolsRelease: "1.0.20250901",
+		AWGGoRelease:    "v0.2.13",
 	}
 	dockerfile, err := GenerateDockerfile(dfCfg)
 	if err != nil {

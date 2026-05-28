@@ -15,14 +15,25 @@ type DockerfileConfig struct {
 	// AWGToolsRelease is the amneziawg-tools GitHub release version.
 	// Defaults to "1.0.20250901" per research.md §3.1.
 	AWGToolsRelease string
+
+	// AWGGoRelease is the amneziawg-go git tag to clone and build.
+	// Defaults to "v0.2.13".
+	AWGGoRelease string
 }
 
 // dockerfileTmpl generates the reference Dockerfile for the AmneziaWG image.
-// Alpine 3.19 + iproute2 + iptables + amneziawg-tools + amneziawg-go.
-// See research.md §3.1 for the source this was reconstructed from.
-var dockerfileTmpl = template.Must(template.New("dockerfile").Parse(`FROM alpine:3.19
+// Multi-stage build: stage 1 compiles amneziawg-go from source (git clone),
+// stage 2 creates minimal Alpine runtime with amneziawg-tools + amneziawg-go.
+// Based on the official Dockerfile from amnezia-vpn/amneziawg-go.
+var dockerfileTmpl = template.Must(template.New("dockerfile").Parse(`FROM golang:1.24.4 AS awg-builder
+RUN git clone --depth 1 --branch {{.AWGGoRelease}} https://github.com/amnezia-vpn/amneziawg-go.git /awg
+WORKDIR /awg
+RUN go mod download && \
+    go mod verify && \
+    go build -ldflags '-linkmode external -extldflags "-fno-PIC -static"' -v -o /usr/bin/amneziawg-go
 
-# system tuning
+FROM alpine:3.19
+
 RUN apk add --no-cache bash curl dumb-init unzip wget && \
     apk --update upgrade --no-cache && \
     mkdir -p /opt/amnezia
@@ -50,7 +61,6 @@ RUN echo -e " \n\
     mkdir -p /etc/security && \
     echo -e " * soft nofile 51200 \n * hard nofile 51200" | tee -a /etc/security/limits.conf
 
-# amneziawg-tools (awg, awg-quick CLI)
 ARG AWGTOOLS_RELEASE={{.AWGToolsRelease}}
 RUN apk --no-cache add iproute2 iptables && \
     cd /usr/bin/ && \
@@ -60,14 +70,12 @@ RUN apk --no-cache add iproute2 iptables && \
     ln -s /usr/bin/awg /usr/bin/wg && \
     ln -s /usr/bin/awg-quick /usr/bin/wg-quick
 
-# amneziawg-go userspace daemon (built separately, copied in)
-COPY amneziawg-go /usr/bin/amneziawg-go
+COPY --from=awg-builder /usr/bin/amneziawg-go /usr/bin/amneziawg-go
 
-# Entrypoint script
 COPY start.sh /opt/amnezia/start.sh
 RUN chmod +x /opt/amnezia/start.sh
 
-LABEL maintainer="unet/amneziawg"
+LABEL maintainer="unet/amneziaawg"
 
 ENTRYPOINT ["dumb-init", "/opt/amnezia/start.sh"]
 `))
@@ -110,6 +118,9 @@ exec tail -f /dev/null
 func GenerateDockerfile(cfg DockerfileConfig) ([]byte, error) {
 	if cfg.AWGToolsRelease == "" {
 		cfg.AWGToolsRelease = "1.0.20250901"
+	}
+	if cfg.AWGGoRelease == "" {
+		cfg.AWGGoRelease = "v0.2.13"
 	}
 
 	var buf bytes.Buffer
