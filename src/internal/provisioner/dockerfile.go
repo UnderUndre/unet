@@ -25,7 +25,8 @@ type DockerfileConfig struct {
 // Multi-stage build: stage 1 compiles amneziawg-go from source (git clone),
 // stage 2 creates minimal Alpine runtime with amneziawg-tools + amneziawg-go.
 // Based on the official Dockerfile from amnezia-vpn/amneziawg-go.
-var dockerfileTmpl = template.Must(template.New("dockerfile").Parse(`FROM golang:1.24.4 AS awg-builder
+var dockerfileTmpl = template.Must(template.New("dockerfile").Parse(`FROM golang:1.24.4-alpine AS awg-builder
+RUN apk add --no-cache git gcc musl-dev
 RUN git clone --depth 1 --branch {{.AWGGoRelease}} https://github.com/amnezia-vpn/amneziawg-go.git /awg
 WORKDIR /awg
 RUN go mod download && \
