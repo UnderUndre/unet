@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	rateLimitPerMinute = 60
-	rateLimitBurst     = 10
-	rateLimitWindow    = time.Minute
+	rateLimitPerMinute  = 60
+	rateLimitBurst      = 10
+	rateLimitWindow     = time.Minute
+	rateLimitEvictAfter = 2 * time.Minute
 )
 
 type visitor struct {
@@ -60,6 +61,14 @@ func (rl *RateLimiter) allow(key string) bool {
 	defer rl.mu.Unlock()
 
 	now := rl.nowFunc()
+
+	if len(rl.visitors) > 1000 {
+		for k, v := range rl.visitors {
+			if now.Sub(v.lastCheck) > rateLimitEvictAfter {
+				delete(rl.visitors, k)
+			}
+		}
+	}
 
 	v, ok := rl.visitors[key]
 	if !ok {

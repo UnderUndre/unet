@@ -1,18 +1,21 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"sync"
 	"time"
 )
 
 type cacheEntry struct {
-	tokenID    string
-	tokenName  string
-	scope      Scope
-	hash       string
-	enabled    bool
-	expiresAt  *time.Time
-	cachedAt   time.Time
+	tokenID   string
+	tokenName string
+	scope     Scope
+	hash      string
+	sha256Sum [sha256.Size]byte
+	enabled   bool
+	expiresAt *time.Time
+	cachedAt  time.Time
 }
 
 type TokenCache struct {
@@ -28,9 +31,9 @@ func NewTokenCache(store *Store, ttl time.Duration) *TokenCache {
 		ttl = 5 * time.Minute
 	}
 	return &TokenCache{
-		entries:  make(map[string]*cacheEntry),
-		ttl:      ttl,
-		store:    store,
+		entries:   make(map[string]*cacheEntry),
+		ttl:       ttl,
+		store:     store,
 		bcryptSem: make(chan struct{}, 2),
 	}
 }
@@ -47,10 +50,12 @@ func (c *TokenCache) Validate(plainToken string) (*TokenValidationResult, error)
 		prefix = prefix[:8]
 	}
 
+	tokenSum := sha256.Sum256([]byte(plainToken))
+
 	c.mu.RLock()
 	if entry, ok := c.entries[prefix]; ok {
 		if time.Since(entry.cachedAt) < c.ttl && entry.enabled {
-			if c.verifyBcrypt(plainToken, entry.hash) {
+			if subtle.ConstantTimeCompare(tokenSum[:], entry.sha256Sum[:]) == 1 {
 				c.mu.RUnlock()
 				return &TokenValidationResult{
 					TokenID:   entry.tokenID,
@@ -82,6 +87,7 @@ func (c *TokenCache) Validate(plainToken string) (*TokenValidationResult, error)
 				tokenName: t.Name,
 				scope:     t.Scope,
 				hash:      t.TokenHash,
+				sha256Sum: tokenSum,
 				enabled:   t.Enabled,
 				expiresAt: t.ExpiresAt,
 				cachedAt:  time.Now(),

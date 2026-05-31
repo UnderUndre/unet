@@ -122,9 +122,13 @@ func setupRemoteAPI(cfgMgr *config.Manager, tunnelMgr *tunnel.Manager, caddy *pr
 		return nil
 	}
 
-	configDir, _ := config.ConfigDir()
+	configDir, err := config.ConfigDir()
+	if err != nil {
+		slog.Error("failed to get config directory", "error", err)
+		return nil
+	}
 
-	tokenStore := auth.NewStore(cfgMgr.Path())
+	tokenStore := auth.NewStore(filepath.Join(configDir, "tokens.json"))
 	tokenCache := auth.NewTokenCache(tokenStore, 0)
 
 	jwtKey := string(cfg.Daemon.JWTSigningKey)

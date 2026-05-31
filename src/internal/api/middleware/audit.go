@@ -42,14 +42,16 @@ func AuditLog(logger *audit.Logger, next http.Handler) http.Handler {
 		}
 
 		action := methodToAction(method, r.URL.Path)
+		remoteAddr := r.RemoteAddr
+		userAgent := r.UserAgent()
 
 		go func() {
 			_ = logger.Write(audit.Entry{
 				ActorTokenID:   info.TokenID,
 				ActorTokenName: info.TokenName,
 				Action:         action,
-				SourceIP:       r.RemoteAddr,
-				UserAgent:      r.UserAgent(),
+				SourceIP:       remoteAddr,
+				UserAgent:      userAgent,
 			})
 		}()
 	})

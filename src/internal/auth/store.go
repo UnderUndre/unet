@@ -18,40 +18,28 @@ func NewStore(path string) *Store {
 	return &Store{path: path}
 }
 
-func (s *Store) load() (map[string]json.RawMessage, []APIToken, error) {
+func (s *Store) load() ([]APIToken, error) {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return make(map[string]json.RawMessage), []APIToken{}, nil
+			return []APIToken{}, nil
 		}
-		return nil, nil, err
-	}
-
-	var root map[string]json.RawMessage
-	if err := json.Unmarshal(data, &root); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var tokens []APIToken
-	if tokensRaw, ok := root["apiTokens"]; ok {
-		if err := json.Unmarshal(tokensRaw, &tokens); err != nil {
-			return nil, nil, err
+	if err := json.Unmarshal(data, &tokens); err != nil {
+		if len(data) == 0 {
+			return []APIToken{}, nil
 		}
-	} else {
-		tokens = []APIToken{}
+		return nil, err
 	}
 
-	return root, tokens, nil
+	return tokens, nil
 }
 
-func (s *Store) save(root map[string]json.RawMessage, tokens []APIToken) error {
-	tokensRaw, err := json.Marshal(tokens)
-	if err != nil {
-		return err
-	}
-	root["apiTokens"] = tokensRaw
-
-	data, err := json.MarshalIndent(root, "", "  ")
+func (s *Store) save(tokens []APIToken) error {
+	data, err := json.MarshalIndent(tokens, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -99,7 +87,7 @@ func (s *Store) Create(token *APIToken) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	root, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return err
 	}
@@ -111,7 +99,7 @@ func (s *Store) Create(token *APIToken) error {
 	}
 
 	tokens = append(tokens, *token)
-	return s.save(root, tokens)
+	return s.save(tokens)
 }
 
 // GetByID returns a token by its ID.
@@ -119,7 +107,7 @@ func (s *Store) GetByID(id string) (*APIToken, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return nil, err
 	}
@@ -132,12 +120,11 @@ func (s *Store) GetByID(id string) (*APIToken, error) {
 	return nil, ErrTokenNotFound
 }
 
-// GetByName returns a token by its Name.
 func (s *Store) GetByName(name string) (*APIToken, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return nil, err
 	}
@@ -150,24 +137,22 @@ func (s *Store) GetByName(name string) (*APIToken, error) {
 	return nil, ErrTokenNotFound
 }
 
-// List returns all tokens.
 func (s *Store) List() ([]APIToken, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	_, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return nil, err
 	}
 	return tokens, nil
 }
 
-// Update saves modifications to an existing token.
 func (s *Store) Update(token *APIToken) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	root, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return err
 	}
@@ -175,7 +160,6 @@ func (s *Store) Update(token *APIToken) error {
 	found := false
 	for i, t := range tokens {
 		if t.ID == token.ID {
-			// Ensure name uniqueness if name changed
 			if t.Name != token.Name {
 				for _, other := range tokens {
 					if other.ID != token.ID && other.Name == token.Name {
@@ -193,15 +177,14 @@ func (s *Store) Update(token *APIToken) error {
 		return ErrTokenNotFound
 	}
 
-	return s.save(root, tokens)
+	return s.save(tokens)
 }
 
-// SoftDelete marks a token as disabled instead of physically removing it.
 func (s *Store) SoftDelete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	root, tokens, err := s.load()
+	tokens, err := s.load()
 	if err != nil {
 		return err
 	}
@@ -219,5 +202,6 @@ func (s *Store) SoftDelete(id string) error {
 		return ErrTokenNotFound
 	}
 
-	return s.save(root, tokens)
+	return s.save(tokens)
 }
+

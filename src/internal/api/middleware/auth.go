@@ -17,6 +17,11 @@ type AuthDispatcherDeps struct {
 
 func AuthDispatcher(deps *AuthDispatcherDeps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			handleTokenAuth(deps, w, r, next)
+			return
+		}
+
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
 			host = r.RemoteAddr
@@ -33,33 +38,37 @@ func AuthDispatcher(deps *AuthDispatcherDeps, next http.Handler) http.Handler {
 			return
 		}
 
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
-				"Authorization header required", nil)
-			return
-		}
-
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == authHeader {
-			v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
-				"Invalid authorization scheme, use Bearer", nil)
-			return
-		}
-
-		if strings.HasPrefix(token, "unet_") {
-			handlePAT(deps, w, r, token, next)
-			return
-		}
-
-		if strings.HasPrefix(token, "eyJ") {
-			handleJWT(deps, w, r, token, next)
-			return
-		}
-
-		v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
-			"Unrecognized token format", nil)
+		handleTokenAuth(deps, w, r, next)
 	})
+}
+
+func handleTokenAuth(deps *AuthDispatcherDeps, w http.ResponseWriter, r *http.Request, next http.Handler) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
+			"Authorization header required", nil)
+		return
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader {
+		v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
+			"Invalid authorization scheme, use Bearer", nil)
+		return
+	}
+
+	if strings.HasPrefix(token, "unet_") {
+		handlePAT(deps, w, r, token, next)
+		return
+	}
+
+	if strings.HasPrefix(token, "eyJ") {
+		handleJWT(deps, w, r, token, next)
+		return
+	}
+
+	v1.ErrorResponse(w, http.StatusUnauthorized, v1.ErrCodeUnauthorized,
+		"Unrecognized token format", nil)
 }
 
 func handlePAT(deps *AuthDispatcherDeps, w http.ResponseWriter, r *http.Request, plainToken string, next http.Handler) {

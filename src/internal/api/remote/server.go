@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/underundre/unet/internal/config"
 )
@@ -21,7 +22,11 @@ type Server struct {
 func NewServer(cfgMgr *config.Manager, handler http.Handler) *Server {
 	return &Server{
 		httpServer: &http.Server{
-			Handler: handler,
+			Handler:           handler,
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       15 * time.Second,
+			WriteTimeout:      15 * time.Second,
+			IdleTimeout:       60 * time.Second,
 		},
 		configMgr: cfgMgr,
 	}
