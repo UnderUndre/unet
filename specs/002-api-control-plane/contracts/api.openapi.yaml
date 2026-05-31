@@ -1,0 +1,765 @@
+openapi: 3.1.0
+info:
+  title: unet Control Plane API
+  version: "2026-05-27"
+  description: |
+    Remote management API for unet — self-hosted tunnel and ingress controller.
+    Authenticated via PAT (CLI/external) or JWT (admin UI sessions).
+    All endpoints prefixed with `/v1/`. TLS required on non-loopback interfaces.
+  contact:
+    name: unet OSS
+    url: https://github.com/underundre/unet
+
+servers:
+  - url: https://{host}:8443/v1
+    description: Remote API (TLS required)
+    variables:
+      host:
+        default: localhost
+  - url: http://localhost:8080/v1
+    description: Local loopback (no auth, development only)
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ── Status ──────────────────────────────────────────────
+  /status:
+    get:
+      operationId: getStatus
+      summary: System health and API status
+      tags: [Status]
+      security:
+        - BearerAuth: []
+        - {}  # loopback: no auth
+      responses:
+        "200":
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+
+  # ── Tunnel ──────────────────────────────────────────────
+  /tunnel/status:
+    get:
+      operationId: getTunnelStatus
+      summary: Current tunnel connection status
+      tags: [Tunnel]
+      security:
+        - BearerAuth: []  # x-required-scope: read
+      responses:
+        "200":
+          description: Tunnel status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TunnelStatus"
+
+  # ── Peers ───────────────────────────────────────────────
+  /peers:
+    get:
+      operationId: listPeers
+      summary: List all configured peers
+      tags: [Peers]
+      security:
+        - BearerAuth: []  # x-required-scope: read
+      responses:
+        "200":
+          description: Array of peer objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Peer"
+
+    post:
+      operationId: createPeer
+      summary: Create a new WireGuard peer
+      tags: [Peers]
+      security:
+        - BearerAuth: []  # x-required-scope: write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePeerRequest"
+      responses:
+        "201":
+          description: Peer created with client config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePeerResponse"
+        "409":
+          description: Peer name conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: peer_name_conflict
+                message: "A peer named 'my-phone' already exists"
+        "507":
+          description: IP pool exhausted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: ip_pool_exhausted
+                message: "No available IPs in tunnel subnet 10.8.1.0/24"
+        "503":
+          description: VPS unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: vps_unreachable
+                message: "Cannot reach VPS to add peer"
+
+  /peers/{peerId}:
+    get:
+      operationId: getPeer
+      summary: Get single peer detail with stats
+      tags: [Peers]
+      security:
+        - BearerAuth: []  # x-required-scope: read
+      parameters:
+        - name: peerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Peer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PeerDetail"
+        "404":
+          description: Peer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      operationId: deletePeer
+      summary: Remove a peer and terminate its connection
+      tags: [Peers]
+      security:
+        - BearerAuth: []  # x-required-scope: write
+      parameters:
+        - name: peerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Peer removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [removed]
+        "404":
+          description: Peer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Routes ──────────────────────────────────────────────
+  /routes:
+    get:
+      operationId: listRoutes
+      summary: List all ingress routes
+      tags: [Routes]
+      security:
+        - BearerAuth: []  # x-required-scope: read
+      responses:
+        "200":
+          description: Array of route objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IngressRoute"
+
+    post:
+      operationId: createRoute
+      summary: Create an ingress route
+      tags: [Routes]
+      security:
+        - BearerAuth: []  # x-required-scope: write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRouteRequest"
+      responses:
+        "201":
+          description: Route created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngressRoute"
+        "409":
+          description: Route conflict (subdomain in use)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: route_conflict
+                message: "Subdomain 'app' is already in use"
+        "412":
+          description: Tunnel not connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: tunnel_not_connected
+                message: "Cannot create routes without an active tunnel"
+
+  /routes/{routeId}:
+    delete:
+      operationId: deleteRoute
+      summary: Remove an ingress route
+      tags: [Routes]
+      security:
+        - BearerAuth: []  # x-required-scope: write
+      parameters:
+        - name: routeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Route removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [removed]
+        "404":
+          description: Route not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Tokens ──────────────────────────────────────────────
+  /tokens:
+    get:
+      operationId: listTokens
+      summary: List all API tokens (hashes never returned)
+      tags: [Tokens]
+      security:
+        - BearerAuth: []  # x-required-scope: admin
+      responses:
+        "200":
+          description: Array of token objects (no secrets)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TokenInfo"
+
+    post:
+      operationId: createToken
+      summary: Create a new API token
+      description: |
+        Returns the plaintext token exactly once. Store it securely —
+        it cannot be retrieved again. Token hash is stored; plaintext is not.
+      tags: [Tokens]
+      security:
+        - BearerAuth: []  # x-required-scope: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenRequest"
+      responses:
+        "201":
+          description: Token created (plaintext shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTokenResponse"
+
+  /tokens/{tokenId}:
+    delete:
+      operationId: revokeToken
+      summary: Revoke an API token
+      tags: [Tokens]
+      security:
+        - BearerAuth: []  # x-required-scope: admin
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Token revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [revoked]
+        "404":
+          description: Token not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ── Audit ───────────────────────────────────────────────
+  /audit:
+    get:
+      operationId: listAuditEntries
+      summary: Query audit log entries
+      tags: [Audit]
+      security:
+        - BearerAuth: []  # x-required-scope: admin
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: actor
+          in: query
+          description: Filter by actor token name
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Filter by action type
+          schema:
+            type: string
+            enum:
+              - create_peer
+              - delete_peer
+              - create_route
+              - delete_route
+              - create_token
+              - revoke_token
+              - rotate_cert
+        - name: from
+          in: query
+          description: Start of time range (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of time range (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Paginated audit entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogResponse"
+
+  # ── Auth (JWT session) ─────────────────────────────────
+  /auth/session:
+    post:
+      operationId: createSession
+      summary: Exchange a PAT for a JWT session token
+      description: |
+        Used by admin UI to establish a browser session.
+        Sends a PAT as Bearer token, receives a short-lived JWT in response.
+      tags: [Auth]
+      security:
+        - BearerAuth: []  # x-required-scope: read
+      responses:
+        "200":
+          description: JWT session token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT token
+                  expiresIn:
+                    type: integer
+                    description: TTL in seconds
+                    example: 900
+                  scope:
+                    type: string
+                    enum: [read, write, admin]
+        "401":
+          description: Invalid or expired PAT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Two token types accepted:
+        - **PAT**: `unet_<opaque>` — long-lived, stored hashed.
+        - **JWT**: `eyJ...` — short-lived session token (15 min TTL).
+
+  schemas:
+    # ── Error ─────────────────────────────────────────────
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable snake_case error code
+        message:
+          type: string
+          description: Human-readable error description
+        context:
+          type: object
+          description: Additional error context (optional)
+          additionalProperties: true
+
+    # ── Status ────────────────────────────────────────────
+    SystemStatus:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+          example: "2026-05-27"
+        tunnel:
+          $ref: "#/components/schemas/TunnelStatus"
+        peers:
+          type: object
+          properties:
+            total:
+              type: integer
+            connected:
+              type: integer
+        routes:
+          type: object
+          properties:
+            total:
+              type: integer
+            active:
+              type: integer
+        tls:
+          type: object
+          properties:
+            certExpiry:
+              type: string
+              format: date-time
+            certExpiryWarning:
+              type: boolean
+              description: true if cert expires within 30 days
+        vps:
+          type: object
+          properties:
+            reachable:
+              type: boolean
+            status:
+              type: string
+              enum: [healthy, partitioned, unreachable]
+
+    TunnelStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [connected, disconnected, connecting, error]
+        localIp:
+          type: string
+          example: "10.8.1.2"
+        serverIp:
+          type: string
+          example: "10.8.1.1"
+        serverEndpoint:
+          type: string
+          example: "1.2.3.4:31075"
+        connectedAt:
+          type: string
+          format: date-time
+        stale:
+          type: boolean
+          description: true if data is from cache (VPS unreachable)
+
+    # ── Peer ──────────────────────────────────────────────
+    Peer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        publicKey:
+          type: string
+        allowedIp:
+          type: string
+        connected:
+          type: boolean
+        createdVia:
+          type: string
+          enum: [local, api]
+        createdAt:
+          type: string
+          format: date-time
+
+    PeerDetail:
+      allOf:
+        - $ref: "#/components/schemas/Peer"
+        - type: object
+          properties:
+            lastHandshake:
+              type: string
+              format: date-time
+            transferRx:
+              type: integer
+              format: int64
+              description: Bytes received
+            transferTx:
+              type: integer
+              format: int64
+              description: Bytes sent
+
+    CreatePeerRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-zA-Z0-9_-]+$"
+
+    CreatePeerResponse:
+      allOf:
+        - $ref: "#/components/schemas/Peer"
+        - type: object
+          properties:
+            clientConfig:
+              type: string
+              description: |
+                Complete WireGuard client configuration file content.
+                Includes all AmneziaWG obfuscation parameters.
+                Ready to save as .conf and import.
+
+    # ── Route ─────────────────────────────────────────────
+    IngressRoute:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subdomain:
+          type: string
+          example: "app"
+        localPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        targetPeerIp:
+          type: string
+          description: Tunnel IP of the peer serving this route
+        status:
+          type: string
+          enum: [active, error, pending]
+        fqdn:
+          type: string
+          description: Fully qualified domain name (subdomain + base domain)
+          example: "app.mydomain.com"
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateRouteRequest:
+      type: object
+      required: [localPort, subdomain]
+      properties:
+        localPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        subdomain:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+
+    # ── Token ─────────────────────────────────────────────
+    TokenInfo:
+      type: object
+      description: Token metadata (no secret material)
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tokenPrefix:
+          type: string
+          description: "First 8 chars for identification (e.g., 'unet_a1b2')"
+        scope:
+          type: string
+          enum: [read, write, admin]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+        requestCount:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
+
+    CreateTokenRequest:
+      type: object
+      required: [name, scope]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        scope:
+          type: string
+          enum: [read, write, admin]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiration time
+
+    CreateTokenResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        token:
+          type: string
+          description: |
+            Plaintext token — SHOWN ONCE. Never stored, never returned again.
+            Format: unet_<base64url>
+        scope:
+          type: string
+          enum: [read, write, admin]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Audit ─────────────────────────────────────────────
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        actorTokenId:
+          type: string
+        actorTokenName:
+          type: string
+        action:
+          type: string
+          enum:
+            - create_peer
+            - delete_peer
+            - create_route
+            - delete_route
+            - create_token
+            - revoke_token
+            - rotate_cert
+        targetResourceId:
+          type: string
+        sourceIp:
+          type: string
+        userAgent:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AuditLogResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        pagination:
+          type: object
+          properties:
+            offset:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            hasMore:
+              type: boolean

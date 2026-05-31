@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unet.dev/schemas/log-record/v1",
+  "title": "LogRecord",
+  "description": "A single structured log line in the unet JSONL log format. Each line in daemon-YYYY-MM-DD.jsonl is a valid JSON object conforming to this schema.",
+  "type": "object",
+  "required": ["ts", "level", "component", "source", "msg", "seq"],
+  "additionalProperties": false,
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp with millisecond precision. Must end with 'Z'.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "examples": ["2026-05-27T14:32:01.123Z"]
+    },
+    "level": {
+      "type": "string",
+      "description": "Log severity level.",
+      "enum": ["debug", "info", "warn", "error"]
+    },
+    "component": {
+      "type": "string",
+      "description": "Emitting subsystem. Lowercase, dots allowed for nested components.",
+      "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+      "examples": ["tunnel", "api", "container.unet-caddy", "lifecycle", "dns", "ssh", "config"]
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin of the log record.",
+      "enum": ["daemon", "container", "lifecycle", "api-audit"]
+    },
+    "msg": {
+      "type": "string",
+      "description": "Human-readable log message.",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "seq": {
+      "type": "integer",
+      "description": "Monotonically increasing sequence number within a daemon session. Used for SSE Last-Event-ID. Starts at 1.",
+      "minimum": 1
+    },
+    "fields": {
+      "type": "object",
+      "description": "Optional structured context. Extensible key-value pairs. Secret values MUST be redacted to '<redacted>'.",
+      "additionalProperties": true,
+      "properties": {
+        "peer_id": {
+          "type": "string",
+          "description": "Peer UUID when relevant.",
+          "format": "uuid"
+        },
+        "route_id": {
+          "type": "string",
+          "description": "Route UUID when relevant.",
+          "format": "uuid"
+        },
+        "request_id": {
+          "type": "string",
+          "description": "API request correlation ID."
+        },
+        "error_class": {
+          "type": "string",
+          "description": "Error category for metrics classification.",
+          "enum": ["tunnel", "caddy", "dns", "ssh", "config"]
+        },
+        "container": {
+          "type": "string",
+          "description": "Container name. Present when source is 'container'.",
+          "examples": ["unet-amnezia-awg", "unet-caddy"]
+        },
+        "container_ts": {
+          "type": "string",
+          "description": "Original container timestamp if parseable from Docker output.",
+          "format": "date-time"
+        },
+        "exit_code": {
+          "type": "integer",
+          "description": "Container exit code. Present on container stop events."
+        }
+      }
+    }
+  }
+}
