@@ -314,6 +314,118 @@ func (m *Manager) CheckDrift(ctx context.Context) error {
 	return nil
 }
 
+// AddPeerForRemote creates a new peer on the remote AWG server.
+// It generates a keypair, allocates an IP, adds the peer, and updates the
+// server mirror in config. Returns the public key of the new peer.
+func (m *Manager) AddPeerForRemote(ctx context.Context, name string) (string, error) {
+	cfg := m.cfgMgr.Get()
+	vps := cfg.VPS
+	if vps.Host == "" {
+		return "", fmt.Errorf("tunnel: VPS not configured")
+	}
+
+	privKey, pubKey, err := m.awg.GenerateKeyPair(ctx)
+	if err != nil {
+		return "", fmt.Errorf("tunnel: generate keypair: %w", err)
+	}
+
+	srvCfg, err := m.parser.FetchAll(ctx, vps, "awg0")
+	if err != nil {
+		return "", fmt.Errorf("tunnel: fetch server state: %w", err)
+	}
+
+	subnet := deriveSubnet(srvCfg.Address)
+	if subnet == "" {
+		return "", fmt.Errorf("tunnel: could not derive subnet")
+	}
+
+	clientIP, err := AllocateNextIP(subnet, srvCfg.Peers)
+	if err != nil {
+		return "", fmt.Errorf("tunnel: allocate IP: %w", err)
+	}
+
+	result, err := m.peerMgr.AddPeer(ctx, AddPeerParams{
+		VPS:                vps,
+		Interface:          "awg0",
+		ClientPublicKey:    pubKey,
+		ClientIP:           clientIP,
+		PresharedKey:       srvCfg.PresharedKey,
+		ClientName:         name,
+		PersistentKeepalive: 25,
+	})
+	if err != nil {
+		return "", fmt.Errorf("tunnel: add peer: %w", err)
+	}
+
+	_ = m.cfgMgr.Update(func(c *config.RootConfig) {
+		mirror, parseErr := ParseServerMirror(c.ServerMirror)
+		if parseErr != nil {
+			mirror = &ServerMirrorJSON{}
+		}
+		mirror.LastSyncedAt = time.Now().UTC().Format(time.RFC3339)
+		if result.ClientsTableJSON != nil {
+			mirror.ClientsTable = result.ClientsTableJSON
+		}
+		mirrorJSON, _ := SerializeServerMirror(mirror)
+		c.ServerMirror = mirrorJSON
+
+		if c.Tunnel.PrivateKey.Plain() == "" {
+			c.Tunnel.PrivateKey = config.SecretString(privKey)
+			c.Tunnel.PublicKey = pubKey
+		}
+	})
+
+	return pubKey, nil
+}
+
+// RemovePeerByPublicKey removes a peer from the remote AWG server by its
+// public key and updates the server mirror.
+func (m *Manager) RemovePeerByPublicKey(ctx context.Context, publicKey string) error {
+	cfg := m.cfgMgr.Get()
+	vps := cfg.VPS
+	if vps.Host == "" {
+		return fmt.Errorf("tunnel: VPS not configured")
+	}
+
+	if err := m.peerMgr.RemovePeer(ctx, RemovePeerParams{
+		VPS:             vps,
+		Interface:       "awg0",
+		ClientPublicKey: publicKey,
+	}); err != nil {
+		return fmt.Errorf("tunnel: remove peer: %w", err)
+	}
+
+	_ = m.cfgMgr.Update(func(c *config.RootConfig) {
+		mirror, parseErr := ParseServerMirror(c.ServerMirror)
+		if parseErr != nil {
+			return
+		}
+		mirror.LastSyncedAt = time.Now().UTC().Format(time.RFC3339)
+		var updated []ClientEntry
+		if mirror.ClientsTable != nil {
+			var entries []ClientEntry
+			if json.Unmarshal(mirror.ClientsTable, &entries) == nil {
+				for _, e := range entries {
+					if e.ClientID != publicKey {
+						updated = append(updated, e)
+					}
+				}
+			}
+		}
+		if updated != nil {
+			payload, _ := json.Marshal(updated)
+			mirror.ClientsTable = json.RawMessage(payload)
+		}
+		mirrorJSON, _ := SerializeServerMirror(mirror)
+		c.ServerMirror = mirrorJSON
+	})
+
+	return nil
+}
+
+// AWG returns the underlying AWGCli for key generation.
+func (m *Manager) AWG() *AWGCli { return m.awg }
+
 // ---------- watchdog ----------
 
 const watchdogInterval = 30 * time.Second

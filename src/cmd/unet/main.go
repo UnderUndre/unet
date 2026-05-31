@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 
 	"log/slog"
 
+	"github.com/underundre/unet/internal/api/adapters"
+	"github.com/underundre/unet/internal/api/remote"
+	"github.com/underundre/unet/internal/audit"
+	"github.com/underundre/unet/internal/auth"
 	"github.com/underundre/unet/internal/config"
 	"github.com/underundre/unet/internal/daemon"
 	"github.com/underundre/unet/internal/proxy"
@@ -81,6 +86,8 @@ func main() {
 
 	srv.HandleFunc("GET /api/ssh/hosts", daemon.HandleSSHHosts)
 
+	remoteSrv := setupRemoteAPI(cfgMgr, tunnelMgr, caddyClient, dnsManager)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -89,12 +96,82 @@ func main() {
 		os.Exit(1)
 	}
 
+	if remoteSrv != nil {
+		if err := remoteSrv.Start(); err != nil {
+			slog.Error("failed to start remote API server", "error", err)
+		}
+	}
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 
 	slog.Info("shutting down")
+	if remoteSrv != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5)
+		defer shutdownCancel()
+		remoteSrv.Stop(shutdownCtx)
+	}
 	cancel()
+}
+
+func setupRemoteAPI(cfgMgr *config.Manager, tunnelMgr *tunnel.Manager, caddy *proxy.CaddyClient, dns *proxy.DNSManager) *remote.Server {
+	cfg := cfgMgr.Get()
+	if !cfg.RemoteAPI.Enabled {
+		slog.Info("remote API disabled")
+		return nil
+	}
+
+	configDir, _ := config.ConfigDir()
+
+	tokenStore := auth.NewStore(cfgMgr.Path())
+	tokenCache := auth.NewTokenCache(tokenStore, 0)
+
+	jwtKey := string(cfg.Daemon.JWTSigningKey)
+	if jwtKey == "" {
+		key, err := auth.GenerateJWTSigningKey()
+		if err != nil {
+			slog.Error("failed to generate JWT key", "error", err)
+			return nil
+		}
+		if err := cfgMgr.Update(func(c *config.RootConfig) {
+			c.Daemon.JWTSigningKey = config.SecretString(key)
+		}); err != nil {
+			slog.Error("failed to persist JWT key", "error", err)
+			return nil
+		}
+		jwtKey = key
+	}
+
+	jwtIssuer, err := auth.NewJWTIssuer(jwtKey)
+	if err != nil {
+		slog.Error("failed to create JWT issuer", "error", err)
+		return nil
+	}
+
+	auditPath := filepath.Join(configDir, "audit.jsonl")
+	auditLogger, err := audit.NewLogger(auditPath)
+	if err != nil {
+		slog.Error("failed to create audit logger", "error", err)
+		return nil
+	}
+
+	tunnelAdapter := adapters.NewTunnelAdapter(tunnelMgr, cfgMgr)
+	routeAdapter := adapters.NewRouteAdapter(cfgMgr, caddy, dns)
+	peerAdapter := adapters.NewPeerAdapter(cfgMgr, tunnelMgr)
+
+	handler := remote.RegisterRoutes(&remote.Dependencies{
+		TokenStore: tokenStore,
+		TokenCache: tokenCache,
+		JWTIssuer:  jwtIssuer,
+		AuditLog:   auditLogger,
+		AuditPath:  auditPath,
+		Peers:      peerAdapter,
+		Routes:     routeAdapter,
+		Tunnel:     tunnelAdapter,
+	})
+
+	return remote.NewServer(cfgMgr, handler)
 }
 
 type lazySSHClient struct {
