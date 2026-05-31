@@ -47,7 +47,7 @@ paths:
       summary: Current tunnel connection status
       tags: [Tunnel]
       security:
-        - BearerAuth: [read]
+        - BearerAuth: []  # x-required-scope: read
       responses:
         "200":
           description: Tunnel status
@@ -63,7 +63,7 @@ paths:
       summary: List all configured peers
       tags: [Peers]
       security:
-        - BearerAuth: [read]
+        - BearerAuth: []  # x-required-scope: read
       responses:
         "200":
           description: Array of peer objects
@@ -79,7 +79,7 @@ paths:
       summary: Create a new WireGuard peer
       tags: [Peers]
       security:
-        - BearerAuth: [write]
+        - BearerAuth: []  # x-required-scope: write
       requestBody:
         required: true
         content:
@@ -127,7 +127,7 @@ paths:
       summary: Get single peer detail with stats
       tags: [Peers]
       security:
-        - BearerAuth: [read]
+        - BearerAuth: []  # x-required-scope: read
       parameters:
         - name: peerId
           in: path
@@ -154,7 +154,7 @@ paths:
       summary: Remove a peer and terminate its connection
       tags: [Peers]
       security:
-        - BearerAuth: [write]
+        - BearerAuth: []  # x-required-scope: write
       parameters:
         - name: peerId
           in: path
@@ -190,7 +190,7 @@ paths:
       summary: List all ingress routes
       tags: [Routes]
       security:
-        - BearerAuth: [read]
+        - BearerAuth: []  # x-required-scope: read
       responses:
         "200":
           description: Array of route objects
@@ -206,7 +206,7 @@ paths:
       summary: Create an ingress route
       tags: [Routes]
       security:
-        - BearerAuth: [write]
+        - BearerAuth: []  # x-required-scope: write
       requestBody:
         required: true
         content:
@@ -245,7 +245,7 @@ paths:
       summary: Remove an ingress route
       tags: [Routes]
       security:
-        - BearerAuth: [write]
+        - BearerAuth: []  # x-required-scope: write
       parameters:
         - name: routeId
           in: path
@@ -281,7 +281,7 @@ paths:
       summary: List all API tokens (hashes never returned)
       tags: [Tokens]
       security:
-        - BearerAuth: [admin]
+        - BearerAuth: []  # x-required-scope: admin
       responses:
         "200":
           description: Array of token objects (no secrets)
@@ -300,7 +300,7 @@ paths:
         it cannot be retrieved again. Token hash is stored; plaintext is not.
       tags: [Tokens]
       security:
-        - BearerAuth: [admin]
+        - BearerAuth: []  # x-required-scope: admin
       requestBody:
         required: true
         content:
@@ -321,7 +321,7 @@ paths:
       summary: Revoke an API token
       tags: [Tokens]
       security:
-        - BearerAuth: [admin]
+        - BearerAuth: []  # x-required-scope: admin
       parameters:
         - name: tokenId
           in: path
@@ -357,7 +357,7 @@ paths:
       summary: Query audit log entries
       tags: [Audit]
       security:
-        - BearerAuth: [admin]
+        - BearerAuth: []  # x-required-scope: admin
       parameters:
         - name: limit
           in: query
@@ -420,7 +420,7 @@ paths:
         Sends a PAT as Bearer token, receives a short-lived JWT in response.
       tags: [Auth]
       security:
-        - BearerAuth: [read]
+        - BearerAuth: []  # x-required-scope: read
       responses:
         "200":
           description: JWT session token issued

@@ -82,12 +82,18 @@ Host: unet.example.com:8443
 │     (hash → tokenID, verified <5m)  │
 │     HIT → inject context, done      │
 │                                     │
-│  2. MISS → bcrypt verify            │
-│     a. Iterate all stored tokenHash │
-│     b. bcrypt.CompareHashAndPassword│
-│     c. Match found?                 │
-│        YES → check enabled, expiry  │
-│        NO  → 401                    │
+│  2. MISS → prefix-based lookup      │
+│     a. Extract tokenPrefix from     │
+│        input (first 8 chars after   │
+│        "unet_" prefix)              │
+│     b. Lookup by tokenPrefix → O(1) │
+│        single candidate hash        │
+│     c. No candidate? → 401          │
+│     d. bcrypt.CompareHashAndPassword │
+│        against single candidate     │
+│     e. Match? → check enabled,      │
+│        expiry                       │
+│     f. No match? → 401              │
 │                                     │
 │  3. Update lastUsedAt, requestCount │
 │  4. Add to in-memory cache (5m TTL) │
