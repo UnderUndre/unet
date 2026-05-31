@@ -102,21 +102,32 @@ type DNSConfig struct {
 
 // DaemonConfig holds daemon-level settings.
 type DaemonConfig struct {
-	LogLevel  string `json:"logLevel,omitempty"`
-	PidFile   string `json:"pidFile,omitempty"`
-	AutoStart bool   `json:"autoStart,omitempty"`
+	LogLevel      string       `json:"logLevel,omitempty"`
+	PidFile       string       `json:"pidFile,omitempty"`
+	AutoStart     bool         `json:"autoStart,omitempty"`
+	JWTSigningKey SecretString `json:"jwtSigningKey,omitempty"`
+}
+
+// RemoteAPIConfig holds remote control plane API settings.
+type RemoteAPIConfig struct {
+	Enabled    bool   `json:"enabled"`
+	ListenAddr string `json:"listenAddr,omitempty"`
+	TLSCert    string `json:"tlsCert,omitempty"`
+	TLSKey     string `json:"tlsKey,omitempty"`
 }
 
 // RootConfig is the top-level JSON structure persisted to disk.
 type RootConfig struct {
-	VPS          VPSConfig     `json:"vps"`
-	Tunnel       TunnelConfig  `json:"tunnel"`
-	CaddyAPI     CaddyAPIConfig `json:"caddyApi"`
-	ExposedPorts []ExposedPort `json:"exposedPorts"`
-	DNS          DNSConfig     `json:"dns"`
-	Daemon       DaemonConfig  `json:"daemon"`
-	ServerMirror string        `json:"serverMirror,omitempty"`
-	UIToken      SecretString  `json:"uiToken,omitempty"`
+	VPS          VPSConfig       `json:"vps"`
+	Tunnel       TunnelConfig    `json:"tunnel"`
+	CaddyAPI     CaddyAPIConfig  `json:"caddyApi"`
+	ExposedPorts []ExposedPort   `json:"exposedPorts"`
+	DNS          DNSConfig       `json:"dns"`
+	Daemon       DaemonConfig    `json:"daemon"`
+	RemoteAPI    RemoteAPIConfig `json:"remoteApi,omitempty"`
+	ServerMirror string          `json:"serverMirror,omitempty"`
+	UIToken      SecretString    `json:"uiToken,omitempty"`
+	// Note: apiTokens are handled by internal/auth to avoid import cycles.
 }
 
 // ---------- Manager ----------
