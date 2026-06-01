@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/underundre/unet/internal/wizard/dnscheck"
 )
 
 type stubSSHPool struct{}
@@ -42,7 +44,7 @@ func setupMux(t *testing.T) (*http.ServeMux, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, dataDir, &stubSSHPool{}, BootstrapDeps{})
+	RegisterRoutes(mux, dataDir, &stubSSHPool{}, BootstrapDeps{}, &dnscheck.DefaultResolver{}, "127.0.0.1")
 	return mux, dataDir
 }
 

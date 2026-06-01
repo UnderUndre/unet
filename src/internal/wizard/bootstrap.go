@@ -124,18 +124,16 @@ func (h *Handler) runBootstrap(ctx context.Context, state *WizardState) {
 		return
 	}
 
-	port := 8080
-	subdomain := ""
 	if state.Inputs.FirstPortExpose != nil {
-		port = state.Inputs.FirstPortExpose.LocalPort
-		subdomain = state.Inputs.FirstPortExpose.Subdomain
-	}
+		port := state.Inputs.FirstPortExpose.LocalPort
+		subdomain := state.Inputs.FirstPortExpose.Subdomain
 
-	routeResult, err = h.bootstrapDeps.RouteExposer.ExposeRoute(ctx, port, subdomain, state)
-	if err != nil {
-		slog.Error("wizard/bootstrap: route exposure failed", "error", err, "session_id", state.SessionID)
-		h.commitFailure(state, fmt.Sprintf("route exposure failed: %v", err))
-		return
+		routeResult, err = h.bootstrapDeps.RouteExposer.ExposeRoute(ctx, port, subdomain, state)
+		if err != nil {
+			slog.Error("wizard/bootstrap: route exposure failed", "error", err, "session_id", state.SessionID)
+			h.commitFailure(state, fmt.Sprintf("route exposure failed: %v", err))
+			return
+		}
 	}
 
 	loaded, loadErr := LoadState(h.dataDir)
@@ -161,13 +159,20 @@ func (h *Handler) runBootstrap(ctx context.Context, state *WizardState) {
 		ServerPubKey string `json:"server_pub_key"`
 	}
 
+	routeURL := ""
+	routeFQDN := ""
+	if routeResult != nil {
+		routeURL = routeResult.URL
+		routeFQDN = routeResult.FQDN
+	}
+
 	ctx_data := commitSuccessContext{
-		PeerID:      peerResult.PeerID,
-		PeerName:    state.Inputs.FirstPeerName,
-		LocalIP:     peerResult.LocalIP,
-		RouteURL:    routeResult.URL,
-		RouteFQDN:   routeResult.FQDN,
-		WGEndpoint:  bootResult.WGEndpoint,
+		PeerID:       peerResult.PeerID,
+		PeerName:     state.Inputs.FirstPeerName,
+		LocalIP:      peerResult.LocalIP,
+		RouteURL:     routeURL,
+		RouteFQDN:    routeFQDN,
+		WGEndpoint:   bootResult.WGEndpoint,
 		ServerPubKey: bootResult.ServerPubKey,
 	}
 

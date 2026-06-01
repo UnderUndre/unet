@@ -12,13 +12,16 @@ export default function SshStep() {
   const [keyPath, setKeyPath] = useState(state.inputs.ssh?.key_path ?? '')
   const [password, setPassword] = useState('')
 
-  const canSubmit = host.trim() !== '' && user.trim() !== '' &&
+  const portNum = Number(port)
+  const isPortValid = port !== '' && Number.isFinite(portNum) && Number.isInteger(portNum) && portNum >= 1 && portNum <= 65535
+
+  const canSubmit = host.trim() !== '' && user.trim() !== '' && isPortValid &&
     (authType === 'key' ? keyPath.trim() !== '' : password.trim() !== '')
 
   const handleSubmit = () => {
     submitStep('ssh', {
       host: host.trim(),
-      port: Number(port) || 22,
+      port: isPortValid ? portNum : 0,
       user: user.trim(),
       auth_type: authType,
       key_path: keyPath.trim(),

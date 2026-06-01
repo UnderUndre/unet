@@ -6,8 +6,6 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	"github.com/underundre/unet/internal/wizard"
 )
 
 type Resolver interface {
@@ -33,10 +31,24 @@ func (d *DefaultResolver) LookupNS(ctx context.Context, domain string) ([]string
 	return names, nil
 }
 
-func Validate(ctx context.Context, resolver Resolver, domain string, vpsIP string, port80Free bool) (*wizard.DomainCheckResult, error) {
+type Result struct {
+	Domain              string   `json:"domain"`
+	Mode                string   `json:"mode"`
+	ARecordIPs          []string `json:"a_record_ips"`
+	PointsToVPS         bool     `json:"points_to_vps"`
+	CloudflareDetected  bool     `json:"cloudflare_detected"`
+	CloudflareTokenValid *bool   `json:"cloudflare_token_valid,omitempty"`
+	TLSStrategy         string   `json:"tls_strategy"`
+	TLSFeasible         bool     `json:"tls_feasible"`
+	CheckedAt           string   `json:"checked_at"`
+	Warnings            []string `json:"warnings"`
+	Errors              []string `json:"errors"`
+}
+
+func Validate(ctx context.Context, resolver Resolver, domain string, vpsIP string, port80Free bool) (*Result, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	result := &wizard.DomainCheckResult{
+	result := &Result{
 		Domain:     domain,
 		Mode:       "byo",
 		CheckedAt:  now,
@@ -73,18 +85,18 @@ func Validate(ctx context.Context, resolver Resolver, domain string, vpsIP strin
 	if result.CloudflareDetected && result.CloudflareTokenValid != nil && *result.CloudflareTokenValid {
 		result.TLSStrategy = "dns-01"
 		result.TLSFeasible = true
-	} else if !result.CloudflareDetected {
+	} else {
+		result.TLSStrategy = "http-01"
 		if port80Free {
-			result.TLSStrategy = "http-01"
 			result.TLSFeasible = true
 		} else {
-			result.TLSStrategy = "http-01"
 			result.TLSFeasible = false
-			result.Errors = append(result.Errors, "port 80 is blocked and no Cloudflare detected; TLS certificate issuance not possible")
+			if result.CloudflareDetected {
+				result.Errors = append(result.Errors, "port 80 is blocked and Cloudflare token is invalid or missing; TLS certificate issuance not possible")
+			} else {
+				result.Errors = append(result.Errors, "port 80 is blocked and no Cloudflare detected; TLS certificate issuance not possible")
+			}
 		}
-	} else {
-		result.TLSStrategy = "dns-01"
-		result.TLSFeasible = true
 	}
 
 	if !result.PointsToVPS && len(result.ARecordIPs) > 0 {

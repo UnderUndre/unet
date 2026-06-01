@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/underundre/unet/internal/config"
 	"github.com/underundre/unet/internal/invite"
@@ -15,6 +17,7 @@ import (
 	"github.com/underundre/unet/internal/routes"
 	"github.com/underundre/unet/internal/tunnel"
 	"github.com/underundre/unet/internal/wizard"
+	"github.com/underundre/unet/internal/wizard/dnscheck"
 )
 
 func wizardDataDir() (string, error) {
@@ -48,7 +51,13 @@ func RegisterWizardRoutes(srv *Server, cfgMgr *config.Manager, tunnelMgr *tunnel
 
 	wizardMux := srv.apiMux
 
-	wizard.RegisterRoutes(wizardMux, dataDir, sshPool, bootstrapDeps)
+	vpsIP := ""
+	cfg := cfgMgr.Get()
+	if cfg.VPS.Host != "" {
+		vpsIP = resolveVPSPublicIP(cfg.VPS.Host)
+	}
+
+	wizard.RegisterRoutes(wizardMux, dataDir, sshPool, bootstrapDeps, &dnscheck.DefaultResolver{}, vpsIP)
 
 	qr.RegisterRoutes(wizardMux)
 
@@ -70,7 +79,7 @@ func RegisterWizardRoutes(srv *Server, cfgMgr *config.Manager, tunnelMgr *tunnel
 	if tunnelMgr != nil {
 		cfg := cfgMgr.Get()
 		if cfg.VPS.Host != "" {
-			routesHandler.SetVPSPublicIP(cfg.VPS.Host)
+			routesHandler.SetVPSPublicIP(resolveVPSPublicIP(cfg.VPS.Host))
 		}
 	}
 	routes.RegisterRoutes(wizardMux, routesHandler)
@@ -79,6 +88,17 @@ func RegisterWizardRoutes(srv *Server, cfgMgr *config.Manager, tunnelMgr *tunnel
 		"data_dir", dataDir,
 		"invite_store_ok", storeErr == nil,
 	)
+}
+
+func resolveVPSPublicIP(host string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil || len(addrs) == 0 {
+		slog.Warn("daemon: could not resolve VPS host", "host", host, "error", err)
+		return ""
+	}
+	return addrs[0]
 }
 
 type dnsAdapter struct {

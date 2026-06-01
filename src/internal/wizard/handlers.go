@@ -7,13 +7,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/underundre/unet/internal/wizard/dnscheck"
 	"github.com/underundre/unet/internal/wizard/preflight"
 )
 
 type Handler struct {
-	dataDir      string
-	sshPool      SSHPool
+	dataDir       string
+	sshPool       SSHPool
 	bootstrapDeps BootstrapDeps
+	dnsResolver   dnscheck.Resolver
+	vpsIP         string
 }
 
 type apiError struct {
@@ -32,8 +35,8 @@ func writeError(w http.ResponseWriter, status int, errCode, msg string, ctx inte
 	writeJSON(w, status, apiError{Error: errCode, Message: msg, Context: ctx})
 }
 
-func RegisterRoutes(mux *http.ServeMux, dataDir string, sshPool SSHPool, deps BootstrapDeps) {
-	h := &Handler{dataDir: dataDir, sshPool: sshPool, bootstrapDeps: deps}
+func RegisterRoutes(mux *http.ServeMux, dataDir string, sshPool SSHPool, deps BootstrapDeps, dnsResolver dnscheck.Resolver, vpsIP string) {
+	h := &Handler{dataDir: dataDir, sshPool: sshPool, bootstrapDeps: deps, dnsResolver: dnsResolver, vpsIP: vpsIP}
 
 	mux.HandleFunc("POST /v1/wizard/sessions", h.handleCreateSession)
 	mux.HandleFunc("GET /v1/wizard/sessions/{id}", h.handleGetSession)
@@ -182,6 +185,31 @@ func (h *Handler) handleStepSubmit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error(),
 			map[string]interface{}{"step": stepStr})
 		return
+	}
+
+	if step == StepDomainCheck {
+		port80Free := true
+		if state.PreflightResult != nil {
+			port80Free = state.PreflightResult.Port80Free
+		}
+		dcr, dnsErr := dnscheck.Validate(r.Context(), h.dnsResolver, state.Inputs.Domain, h.vpsIP, port80Free)
+		if dnsErr != nil {
+			writeError(w, http.StatusUnprocessableEntity, "dns_check_failed", fmt.Sprintf("DNS validation failed: %v", dnsErr), nil)
+			return
+		}
+		state.DomainCheckResult = &DomainCheckResult{
+			Domain:              dcr.Domain,
+			Mode:                dcr.Mode,
+			ARecordIPs:          dcr.ARecordIPs,
+			PointsToVPS:         dcr.PointsToVPS,
+			CloudflareDetected:  dcr.CloudflareDetected,
+			CloudflareTokenValid: dcr.CloudflareTokenValid,
+			TLSStrategy:         dcr.TLSStrategy,
+			TLSFeasible:         dcr.TLSFeasible,
+			CheckedAt:           dcr.CheckedAt,
+			Warnings:            dcr.Warnings,
+			Errors:              dcr.Errors,
+		}
 	}
 
 	nextStep, err := resolveNextStep(state, step)

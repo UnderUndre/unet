@@ -162,11 +162,19 @@ func (s *Store) GC() error {
 		return fmt.Errorf("scan during gc: %w", err)
 	}
 
-	f, err := os.Create(s.path)
+	tmpPath := s.path + ".tmp"
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("create after gc: %w", err)
+		return fmt.Errorf("create tmp for gc: %w", err)
 	}
-	defer f.Close()
+
+	success := false
+	defer func() {
+		if !success {
+			f.Close()
+			os.Remove(tmpPath)
+		}
+	}()
 
 	clear(s.index)
 	var offset int64 = 0
@@ -176,12 +184,30 @@ func (s *Store) GC() error {
 		if inv.TokenHash != "" {
 			s.index[inv.TokenHash] = offset
 		}
-		f.Write(line)
-		f.Write([]byte("\n"))
+		if _, err := f.Write(line); err != nil {
+			return fmt.Errorf("write during gc: %w", err)
+		}
+		if _, err := f.Write([]byte("\n")); err != nil {
+			return fmt.Errorf("write newline during gc: %w", err)
+		}
 		offset += int64(len(line)) + 1
 	}
 
-	s.file = f
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close tmp: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, s.path); err != nil {
+		return fmt.Errorf("rename after gc: %w", err)
+	}
+
+	newFile, err := os.OpenFile(s.path, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		return fmt.Errorf("reopen after gc: %w", err)
+	}
+
+	s.file = newFile
+	success = true
 	return nil
 }
 
