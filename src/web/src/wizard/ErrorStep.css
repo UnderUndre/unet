@@ -1,0 +1,21 @@
+.wizard-step--error {
+  text-align: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.wizard-step__error-box {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--status-error);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+  color: var(--status-error);
+  text-align: left;
+  word-break: break-word;
+}
+
+.wizard-step__actions--center {
+  justify-content: center;
+}

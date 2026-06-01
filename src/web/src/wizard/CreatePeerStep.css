@@ -1,0 +1,77 @@
+.wizard-step--create-peer {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.wizard-step__ports {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.wizard-step__port-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wizard-step__port-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+.wizard-step__port-remove {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.wizard-step__port-remove:hover {
+  color: var(--status-error);
+}
+
+.wizard-step__port-add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.wizard-step__input--small {
+  width: 100px;
+}
+
+.wizard-step__select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.wizard-step__select:focus {
+  border-color: var(--accent);
+}
+
+.wizard-step__btn--small {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.wizard-step__hint {
+  font-size: 0.75rem;
+  color: var(--status-warn);
+}

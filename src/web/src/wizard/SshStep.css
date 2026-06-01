@@ -1,0 +1,79 @@
+.wizard-step--ssh {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.wizard-step__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.wizard-step__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.wizard-step__field--small {
+  flex: 1;
+}
+
+.wizard-step__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.wizard-step__input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.wizard-step__input:focus {
+  border-color: var(--accent);
+}
+
+.wizard-step__row {
+  display: flex;
+  gap: 1rem;
+}
+
+.wizard-step__toggle-group {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.wizard-step__toggle {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.wizard-step__toggle.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.wizard-step__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}

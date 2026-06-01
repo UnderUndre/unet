@@ -1,0 +1,82 @@
+.wizard-step {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+}
+
+.wizard-step__title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.wizard-step__subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.wizard-step__error {
+  color: var(--status-error);
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
+.wizard-step__btn {
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.wizard-step__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wizard-step__btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.wizard-step__btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.wizard-step__btn--secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.wizard-step__btn--secondary:hover:not(:disabled) {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.wizard-step__btn--link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  padding: 0.6rem 0.5rem;
+}
+
+.wizard-step__btn--link:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.wizard-step__btn--danger {
+  background: transparent;
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+}
+
+.wizard-step__btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+}
