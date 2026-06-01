@@ -59,8 +59,8 @@ curl -fsSL https://get.docker.com | sh
 		defer cancel()
 
 		out, _, err := sess.RunScript(installCtx, `set -euo pipefail
-apt-get update -qq
-apt-get install -y -qq docker-compose-plugin
+sudo apt-get update -qq
+sudo apt-get install -y -qq docker-compose-plugin
 `)
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap: compose plugin install failed: %w\noutput: %s", err, out)

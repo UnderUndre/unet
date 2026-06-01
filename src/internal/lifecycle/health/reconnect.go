@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/underundre/unet/internal/ssh"
@@ -18,12 +19,12 @@ import (
 type ReconnectPhase string
 
 const (
-	PhaseProbing    ReconnectPhase = "probing"
-	PhaseReconnect  ReconnectPhase = "reconnecting"
-	PhaseVerifying  ReconnectPhase = "verifying"
-	PhaseSyncing    ReconnectPhase = "syncing"
-	PhaseFailed     ReconnectPhase = "failed"
-	PhaseRecovered  ReconnectPhase = "recovered"
+	PhaseProbing   ReconnectPhase = "probing"
+	PhaseReconnect ReconnectPhase = "reconnecting"
+	PhaseVerifying ReconnectPhase = "verifying"
+	PhaseSyncing   ReconnectPhase = "syncing"
+	PhaseFailed    ReconnectPhase = "failed"
+	PhaseRecovered ReconnectPhase = "recovered"
 )
 
 // ReconnectState tracks the state of an ongoing reconnect sequence.
@@ -46,9 +47,9 @@ const (
 
 // Reconnector manages reconnect attempts with exponential backoff.
 type Reconnector struct {
-	pool   *ssh.Pool
-	state  ReconnectState
-	rng    *rand.Rand
+	pool  *ssh.Pool
+	state ReconnectState
+	rng   *rand.Rand
 
 	// OnStateChange is called when reconnect state changes.
 	OnStateChange func(ReconnectState)
@@ -125,7 +126,7 @@ func (r *Reconnector) Execute(ctx context.Context) error {
 	// Verify expected containers exist.
 	expectedContainers := []string{"unet-net-pause", "unet-amnezia-awg", "unet-caddy"}
 	for _, name := range expectedContainers {
-		if !containsSubstring(containerOut, name) {
+		if !strings.Contains(containerOut, name) {
 			r.state.Phase = PhaseFailed
 			r.state.LastError = fmt.Sprintf("Missing container: %s", name)
 			r.scheduleNext()
@@ -174,17 +175,4 @@ func (r *Reconnector) emitState() {
 	if r.OnStateChange != nil {
 		r.OnStateChange(r.state)
 	}
-}
-
-func containsSubstring(s, sub string) bool {
-	return len(s) >= len(sub) && contains(s, sub)
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }

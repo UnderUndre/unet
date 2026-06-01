@@ -14,6 +14,17 @@ import (
 //go:embed templates/*.tmpl
 var templateFS embed.FS
 
+// composeTmpl is the parsed compose template, initialized once at package load.
+var composeTmpl *template.Template
+
+func init() {
+	tmplData, err := templateFS.ReadFile("templates/docker-compose.yml.tmpl")
+	if err != nil {
+		panic(fmt.Sprintf("compose: read embedded template: %v", err))
+	}
+	composeTmpl = template.Must(template.New("compose").Parse(string(tmplData)))
+}
+
 // RenderConfig holds parameters for docker-compose.yml generation.
 type RenderConfig struct {
 	// AWGPort is the AmneziaWG listen port (UDP).
@@ -39,15 +50,7 @@ func Render(cfg RenderConfig) ([]byte, error) {
 		cfg.CaddyImage = DefaultCaddyImage
 	}
 
-	tmplData, err := templateFS.ReadFile("templates/docker-compose.yml.tmpl")
-	if err != nil {
-		return nil, fmt.Errorf("compose: read embedded template: %w", err)
-	}
-
-	tmpl, err := template.New("compose").Parse(string(tmplData))
-	if err != nil {
-		return nil, fmt.Errorf("compose: parse template: %w", err)
-	}
+	tmpl := composeTmpl
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, cfg); err != nil {

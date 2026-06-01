@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -24,6 +25,10 @@ import (
 // hostMetacharRe matches shell metacharacters that must never appear in a
 // hostname to prevent injection through crafted host strings.
 var hostMetacharRe = regexp.MustCompile(`[;<>|` + "`" + `$\n]`)
+
+// knownHostsMu serializes read-and-append access to the SSH known_hosts
+// file to prevent corruption from concurrent pool connections.
+var knownHostsMu sync.Mutex
 
 // ErrInvalidHost is returned when the VPS host contains forbidden characters.
 var ErrInvalidHost = errors.New("ssh: host contains forbidden metacharacters")
@@ -179,6 +184,9 @@ func hostKeyCallback(host string) (gossh.HostKeyCallback, error) {
 	}
 
 	return func(hostname string, remote net.Addr, key gossh.PublicKey) error {
+		knownHostsMu.Lock()
+		defer knownHostsMu.Unlock()
+
 		f, err := os.Open(khPath)
 		if err != nil {
 			return fmt.Errorf("open known_hosts: %w", err)

@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +38,9 @@ func NewManager(pool *ssh.Pool, profile *state.VPSProfile) *Manager {
 	icmpTarget := profile.WGEndpoint
 	httpTarget := profile.TunnelSubnet
 	if httpTarget != "" {
-		httpTarget = httpTarget + ":2019/config/"
+		// TunnelSubnet carries a CIDR mask (e.g. 10.8.1.1/24); strip it so the
+		// URL is well-formed (mirrors the fix in attach/sync.go).
+		httpTarget = strings.Split(httpTarget, "/")[0] + ":2019/config/"
 	}
 
 	m.prober = NewProber(ProberConfig{

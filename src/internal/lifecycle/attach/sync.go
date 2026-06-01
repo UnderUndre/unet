@@ -15,14 +15,14 @@ import (
 
 // SyncResult holds the outcome of a state sync operation.
 type SyncResult struct {
-	PeersSynced   int    `json:"peersSynced"`
-	RoutesSynced  int    `json:"routesSynced"`
-	TunnelSynced  bool   `json:"tunnelSynced"`
-	VPSSynced     bool   `json:"vpsSynced"`
-	WGEndpoint    string `json:"wgEndpoint,omitempty"`
-	WGServerKey   string `json:"wgServerKey,omitempty"`
-	TunnelSubnet  string `json:"tunnelSubnet,omitempty"`
-	ComposeHash   string `json:"composeHash,omitempty"`
+	PeersSynced  int    `json:"peersSynced"`
+	RoutesSynced int    `json:"routesSynced"`
+	TunnelSynced bool   `json:"tunnelSynced"`
+	VPSSynced    bool   `json:"vpsSynced"`
+	WGEndpoint   string `json:"wgEndpoint,omitempty"`
+	WGServerKey  string `json:"wgServerKey,omitempty"`
+	TunnelSubnet string `json:"tunnelSubnet,omitempty"`
+	ComposeHash  string `json:"composeHash,omitempty"`
 }
 
 // SyncState reads all operational state from the VPS via SSH without
@@ -67,7 +67,8 @@ func SyncState(ctx context.Context, sess *ssh.Session, host string, port int, us
 	}
 
 	// 5. Read Caddy routes via admin API on WG IP.
-	routeOut, err := sess.Run(ctx, "curl -s http://"+ssh.ShellEscape(profile.TunnelSubnet)+":2019/config/apps/http/servers/ 2>/dev/null | head -100")
+	tunnelIP := strings.Split(profile.TunnelSubnet, "/")[0]
+	routeOut, err := sess.Run(ctx, "curl -s http://"+ssh.ShellEscape(tunnelIP)+":2019/config/apps/http/servers/ 2>/dev/null | head -100")
 	_ = routeOut
 	if err == nil {
 		// Parse routes from Caddy config. Simplified — actual parsing depends on

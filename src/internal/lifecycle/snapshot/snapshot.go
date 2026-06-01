@@ -38,7 +38,7 @@ sudo mkdir -p %[1]s
 cd %[1]s
 # Collect config files (ignore missing)
 sudo cp /opt/unet/docker-compose.yml . 2>/dev/null || true
-sudo cp /opt/unet/.compose-hash . 2>/dev/null || true
+sudo cp /opt/unet/.compose-hash ./compose.hash 2>/dev/null || true
 sudo cp /opt/unet/version . 2>/dev/null || true
 # AWG config from container (if running)
 sudo docker cp unet-amnezia-awg:/opt/amnezia/awg/awg0.conf ./awg0.conf 2>/dev/null || true
@@ -82,6 +82,8 @@ fi
 cd /opt/unet && sudo docker compose down --remove-orphans 2>/dev/null || true
 # Restore files
 cd /opt/unet && sudo tar xzf %[1]s
+# Move compose hash to canonical location
+sudo mv /opt/unet/compose.hash /opt/unet/.compose-hash 2>/dev/null || true
 # Restart compose
 cd /opt/unet && sudo docker compose up -d
 echo "ok"

@@ -35,11 +35,11 @@ var ErrPoolExhausted = errors.New("ssh: pool exhausted (max sessions reached)")
 // concurrent sessions, validates connections before use, evicts idle ones,
 // and auto-reconnects on failure.
 type Pool struct {
-	cfg     ConnectConfig
-	mu      sync.Mutex
-	client  *gossh.Client
+	cfg      ConnectConfig
+	mu       sync.Mutex
+	client   *gossh.Client
 	sessions map[*Session]struct{}
-	closed  bool
+	closed   bool
 	lastUsed time.Time
 
 	// stopIdleSweeper is called to stop the background idle-eviction goroutine.
@@ -55,10 +55,10 @@ func NewPool(cfg ConnectConfig) (*Pool, error) {
 	}
 
 	p := &Pool{
-		cfg:            cfg,
-		sessions:       make(map[*Session]struct{}),
+		cfg:             cfg,
+		sessions:        make(map[*Session]struct{}),
 		stopIdleSweeper: make(chan struct{}),
-		lastUsed:       time.Now(),
+		lastUsed:        time.Now(),
 	}
 
 	// Start background idle sweeper.
@@ -108,14 +108,13 @@ func (p *Pool) Session(ctx context.Context) (*Session, error) {
 
 	sess := newSession(raw)
 
-	// Validate the session before returning.
-	validateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	out, err := sess.Run(validateCtx, validationCmd)
-	if err != nil || out != "ok\n" {
+	// Validate the client connection without consuming the session.
+	// A keepalive request verifies liveness; the session remains usable
+	// for the caller's command.
+	_, _, validateErr := p.client.SendRequest("keepalive@openssh.com", true, nil)
+	if validateErr != nil {
 		sess.Close()
-		slog.Debug("ssh: session validation failed, reconnecting", "host", p.cfg.Host, "err", err, "output", out)
+		slog.Debug("ssh: client validation failed, reconnecting", "host", p.cfg.Host, "err", validateErr)
 
 		// Connection is stale — reconnect.
 		p.closeClient()
@@ -129,11 +128,11 @@ func (p *Pool) Session(ctx context.Context) (*Session, error) {
 		}
 		sess = newSession(raw)
 
-		// Re-validate.
-		out2, err2 := sess.Run(validateCtx, validationCmd)
-		if err2 != nil || out2 != "ok\n" {
+		// Re-validate the new client.
+		_, _, err2 := p.client.SendRequest("keepalive@openssh.com", true, nil)
+		if err2 != nil {
 			sess.Close()
-			return nil, fmt.Errorf("ssh: session validation failed after reconnect: out=%q err=%w", out2, err2)
+			return nil, fmt.Errorf("ssh: client validation failed after reconnect: %w", err2)
 		}
 	}
 
