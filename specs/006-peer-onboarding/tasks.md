@@ -15,7 +15,7 @@
 
 **Purpose**: Wizard Go package skeleton, state machine reducer with all transitions from `wizard-state-machine.md`, JSON persistence to `~/.unet/wizard-state.json`, and HTTP route registration on 002's mux. No preflight, no DNS, no QR yet — just the pipe frame.
 
-- [ ] **TASK-1.1** [P1] | Agent: backend-specialist | Est: 350 LOC | FR: FR-001, FR-002
+- [X] **TASK-1.1** [P1] | Agent: backend-specialist | Est: 350 LOC | FR: FR-001, FR-002
 **Title**: Create wizard package skeleton with state machine reducer
 **Description**: New package `src/internal/wizard/`. Define `WizardStep` enum (11 states from `wizard-state-machine.md`), `WizardState` struct (session_id, current_step, status, inputs, preflight_result, domain_check_result, timestamps), `WizardAction` union type, and pure `Reducer(state, action) → (WizardState, error)` function. All 20+ transitions from the state machine's transition table implemented. Table-driven tests cover every valid + invalid transition.
 **Deps**: none
@@ -27,7 +27,7 @@
 - Error state can transition to `ssh` (retry) or `idle` (abandon)
 - Reducer is a pure function — no side effects, no I/O
 
-- [ ] **TASK-1.2** [P1] | Agent: backend-specialist | Est: 200 LOC | FR: FR-002, FR-007
+- [X] **TASK-1.2** [P1] | Agent: backend-specialist | Est: 200 LOC | FR: FR-002, FR-007
 **Title**: Implement wizard state persistence to `~/.unet/wizard-state.json`
 **Description**: `state.go` — `SaveState(dir string, state WizardState) error` and `LoadState(dir string) (*WizardState, error)`. Atomic write (temp file + rename, same pattern as spec 001). File mode 0600. Single-session model: `SaveState` always overwrites. `DeleteState` called on successful commit. On load: validate `session_id` is UUID, `current_step` is valid enum value. Resume logic: if `current_step == commit && status == in_progress`, check VPS health to determine auto-advance to success or reset to error.
 **Deps**: TASK-1.1 (state struct + step enum)
@@ -40,7 +40,7 @@
 - Resume logic: `commit/in_progress` + healthy VPS → auto-advance to success
 - Resume logic: `commit/in_progress` + unhealthy VPS → reset to error with message
 
-- [ ] **TASK-1.3** [P1] | Agent: backend-specialist | Est: 300 LOC | FR: FR-001, FR-002, FR-014
+- [X] **TASK-1.3** [P1] | Agent: backend-specialist | Est: 300 LOC | FR: FR-001, FR-002, FR-014
 **Title**: Implement wizard session HTTP routes
 **Description**: `src/internal/wizard/handlers.go` — HTTP handlers for all 5 wizard API endpoints from `contracts/wizard-api.md`: `POST /v1/wizard/sessions` (start), `GET /v1/wizard/sessions/{id}` (get state), `DELETE /v1/wizard/sessions/{id}` (abandon), `POST /v1/wizard/sessions/{id}/steps/{step}` (submit step), `POST /v1/wizard/sessions/{id}/preflight` (run preflight — stub for now, returns mock result). Route registration function `RegisterRoutes(mux *http.ServeMux)` that 002's `main.go` calls. Single-session enforcement (409 on second start). Step ordering enforcement (409 on out-of-order submission). Auth: loopback bypass, Bearer token for non-loopback.
 **Deps**: TASK-1.1, TASK-1.2
@@ -55,7 +55,7 @@
 - Loopback request bypasses auth
 - Non-loopback without Bearer token returns 401
 
-- [ ] **TASK-1.4** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-001
+- [X] **TASK-1.4** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-001
 **Title**: Implement step validation dispatch + SSH validator
 **Description**: `src/internal/wizard/steps.go` — `validateStep(ctx, step, inputs, state) → (nextStep, error)` dispatch function. Each step has its own validation function. SSH validator (`validateSSH`): uses spec 003's SSH session pool (`internal/ssh/pool.go`) — (a) TCP connect to host:port within 10s, (b) SSH auth (key or password), (c) `sudo docker ps` execution. Returns specific errors: `ssh_connection_refused`, `ssh_auth_failed`, `ssh_no_sudo`, `ssh_no_docker`. Other step validators (welcome, domain_mode, create_peer, cloudflare) validate input structure. Peer name validated against `^[a-zA-Z0-9_-]{1,64}$`.
 **Deps**: TASK-1.1 (step enum, action types), spec 003 SSH pool (interface)
@@ -78,7 +78,7 @@
 
 **Purpose**: VPS preflight checks — distro detection, disk/sudo/docker validation, port availability. Runs over SSH after SSH validation passes. All checks return structured `PreflightResult` from `data-model.md`.
 
-- [ ] **TASK-2.1** [P1] | Agent: backend-specialist | Est: 300 LOC | FR: FR-003, FR-004
+- [X] **TASK-2.1** [P1] | Agent: backend-specialist | Est: 300 LOC | FR: FR-003, FR-004
 **Title**: Implement distro check + disk/sudo/docker validators
 **Description**: New package `src/internal/wizard/preflight/`. `distro.go`: parse `/etc/os-release` over SSH (`cat /etc/os-release`). Extract `ID` and `VERSION_ID`. Accept: Ubuntu ≥ 22.04, Debian ≥ 12. Reject all others with "Unsupported OS: <detected>. Supported: Ubuntu 22.04/24.04, Debian 12." `preflight.go`: `Run(ctx, sshSession) → PreflightResult` orchestrator. Runs: (1) distro check, (2) `df -h /` → disk ≥ 2GB, (3) `sudo -n true` → passwordless sudo, (4) `docker info` → Docker present+running (warn if missing), (5) `ss -tlnp` → ports 443, 80, WG-port free. `PreflightResult` struct matches `data-model.md` exactly.
 **Deps**: TASK-1.4 (SSH validator provides live SSH session)
@@ -94,7 +94,7 @@
 - Port 80 bound: warning (BYO HTTP-01 fails, DNS-01 still works)
 - All checks run over SSH session, no local exec
 
-- [ ] **TASK-2.2** [P1] | Agent: backend-specialist | Est: 150 LOC | FR: FR-004
+- [X] **TASK-2.2** [P1] | Agent: backend-specialist | Est: 150 LOC | FR: FR-004
 **Title**: Wire preflight into wizard step handler
 **Description**: Replace preflight stub in `handlers.go` with real preflight call. `POST /v1/wizard/sessions/{id}/preflight` now runs `preflight.Run(ctx, sshSession)` using SSH coords from wizard state. Returns full `PreflightResult`. If `compatible == false` with blocking failures → 422 response. If warnings only → 200 with warnings array (client decides to proceed). Persist `preflight_result` in wizard state.
 **Deps**: TASK-2.1, TASK-1.3
@@ -113,7 +113,7 @@
 
 **Purpose**: BYO-domain DNS validation, Cloudflare nameserver detection, token scope validation, nip.io fallback logic. All checks return structured `DomainCheckResult` from `data-model.md`.
 
-- [ ] **TASK-3.1** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-005
+- [X] **TASK-3.1** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-005
 **Title**: Implement DNS A-record lookup + Cloudflare nameserver detection
 **Description**: New package `src/internal/wizard/dnscheck/`. `dnscheck.go`: `Validate(ctx, domain, vpsIP) → DomainCheckResult`. Uses injectable DNS resolver interface (default: `net.LookupHost`, `net.LookupNS`). (1) `LookupHost(domain)` → A-record IPs. Match against VPS IP. (2) `LookupNS(domain)` → check if any NS ends with `.cloudflare.com`. (3) Determine TLS strategy: CF detected + valid token → dns-01, else → http-01. (4) Check http-01 feasibility: port 80 must be free (from preflight). Mismatch → warning with actual A-record value displayed.
 **Deps**: TASK-1.4 (step validation), TASK-2.2 (preflight provides port_80_free)
@@ -157,7 +157,7 @@
 
 **Purpose**: React wizard shell with step framework, individual step components, state reducer synced to backend, success page with first URL + QR display. Frontend is a thin reflection of the backend state machine — zero local state transitions.
 
-- [ ] **TASK-4.1** [P1] | Agent: frontend-specialist | Est: 400 LOC | FR: FR-001, FR-002, FR-014
+- [X] **TASK-4.1** [P1] | Agent: frontend-specialist | Est: 400 LOC | FR: FR-001, FR-002, FR-014
 **Title**: Build React wizard shell + step framework + useReducer state machine
 **Description**: New directory `src/web/wizard/`. `WizardApp.tsx` — root wizard component. `state.ts` — `WizardStep` enum, `WizardState` interface, `WizardAction` discriminated union, `wizardReducer` function (mirrors `wizard-state-machine.md` React section exactly). `api.ts` — typed fetch wrapper for all 5 wizard API endpoints. Step rendering: `currentStep` determines which step component renders. `WizardShell` provides progress bar, back button (disabled after commit), loading spinner, error display. First-run detection: on app load, check `GET /v1/status` → if `vps == null`, redirect to `/wizard`. If `wizard-state.json` exists, `RESUME` action from `GET /v1/wizard/sessions/{id}`.
 **Deps**: TASK-1.3 (backend routes must exist)
@@ -255,7 +255,7 @@
 - GC: expired invites pruned, active invites preserved
 - In-memory index rebuilt on load from JSONL scan
 
-- [ ] **TASK-5.4** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-012, FR-013
+- [X] **TASK-5.4** [P1] | Agent: backend-specialist | Est: 250 LOC | FR: FR-012, FR-013
 **Title**: Implement short-code invite + invite HTTP handlers + landing page
 **Description**: `shortcode.go`: `GenerateCode() → (string, error)` — 8-digit numeric code via `crypto/rand`, range 10000000-99999999. Stored as `sha256(code)`. Rate limiting: 5 attempts/IP/60s (in-memory sliding window), 20 total failed attempts per code → invalidate. `handlers.go`: `POST /v1/peers/{peerId}/invite` (create invite), `GET /invite/{peerId}` (validate + serve landing page data), `GET /invite/{peerId}/download` (serve .conf file download). Landing page serves HTML from embedded frontend. OS detection via User-Agent → WG client download links.
 **Deps**: TASK-5.3 (invite store + HMAC), TASK-1.3 (route registration pattern)
@@ -313,7 +313,7 @@
 - Audit trail entry created on wizard completion
 - Events queryable via `GET /v1/logs/stream?component=wizard`
 
-- [ ] **TASK-6.4** [P1] | Agent: backend-specialist | Est: 100 LOC | FR: FR-001
+- [X] **TASK-6.4** [P1] | Agent: backend-specialist | Est: 100 LOC | FR: FR-001
 **Title**: Wire wizard commit handler to real backend + 002 OpenAPI contract update
 **Description**: Replace commit handler stub with `CommitSession` call. Wire `POST /v1/wizard/sessions/{id}/commit` to invoke commit orchestrator. Update spec 002's OpenAPI contract (`contracts/api.openapi.yaml`) to document new endpoints: `/v1/wizard/*`, `/v1/peers/{id}/qr`, `/v1/peers/{id}/invite`, `/v1/routes/expose`. This is a documentation-only change to 002's contract.
 **Deps**: TASK-6.2, TASK-6.3
@@ -331,7 +331,7 @@
 
 **Purpose**: Unit tests for state machine, validators, HMAC. Integration tests for wizard E2E + Cloudflare. Playwright E2E. Security audit. nip.io smoke test. Validation phase — everything gets exercised.
 
-- [ ] **TASK-7.1** [P1] | Agent: test-engineer | Est: 400 LOC | FR: FR-001-FR-014
+- [X] **TASK-7.1** [P1] | Agent: test-engineer | Est: 400 LOC | FR: FR-001-FR-014
 **Title**: Write unit tests for wizard state machine, validators, HMAC, invite store
 **Description**: `wizard/wizard_test.go`: table-driven tests for every state transition (valid + invalid). `wizard/state_test.go`: persistence round-trip, resume logic, corrupted file handling. `wizard/preflight/preflight_test.go`: table-driven os-release parsing → pass/fail. `wizard/dnscheck/dnscheck_test.go`: mock DNS resolver, A-record match/mismatch, Cloudflare detection. `invite/hmac_test.go`: sign → validate → consume round-trip, constant-time verification. `invite/shortcode_test.go`: 8-digit generation, no collisions in 10k, rate limit enforcement. `invite/store_test.go`: append + GC + index rebuild. All tests use `t.TempDir()`, mock interfaces, `go test -race`.
 **Deps**: TASK-1.1, TASK-1.2, TASK-1.4, TASK-2.1, TASK-3.1, TASK-5.3
@@ -345,7 +345,7 @@
 - All tests pass with `go test -race ./internal/wizard/... ./internal/invite/...`
 - Coverage > 80% for wizard/ and invite/ packages
 
-- [ ] **TASK-7.2** [P1] | Agent: test-engineer | Est: 500 LOC | FR: FR-001-FR-014
+- [X] **TASK-7.2** [P1] | Agent: test-engineer | Est: 500 LOC | FR: FR-001-FR-014
 **Title**: Write integration tests for full wizard flow + invite lifecycle + one-click expose
 **Description**: Integration tests using `httptest.Server` with real wizard handlers + mock SSH/bootstrap. Tests: (1) Full wizard flow: create session → submit welcome → submit SSH (mock) → preflight (mock) → domain mode → domain check (mock DNS) → create peer → commit (mock bootstrap) → verify success response. (2) Invite lifecycle: create peer → create invite (HMAC) → consume invite → verify consumed. Create invite (short-code) → enter code → verify config. Expired invite → 410. Consumed invite → 410. Rate limited → 429. (3) One-click expose: expose port → verify route created → expose same subdomain → 409 conflict. Cloudflare DNS mock: success + failure + rollback. (4) Wizard resume: interrupt at SSH step → reload → resume from SSH with pre-filled data.
 **Deps**: TASK-6.4 (all handlers wired), TASK-5.4 (invite handlers)
@@ -358,7 +358,7 @@
 - All tests use temp dirs, no real ~/.unet
 - Coverage > 70% for handler layer
 
-- [ ] **TASK-7.3** [P2] | Agent: test-engineer | Est: 400 LOC | FR: FR-001, FR-006, FR-012
+- [X] **TASK-7.3** [P2] | Agent: test-engineer | Est: 400 LOC | FR: FR-001, FR-006, FR-012
 **Title**: Write Playwright E2E tests for wizard + QR + invite
 **Description**: Playwright tests against running daemon with mock SSH. Tests: (1) Happy path: fresh admin UI → complete wizard → verify first URL displayed → verify QR rendered. (2) Interrupt + resume: complete through SSH step → close browser → reopen → resume from domain step. (3) QR flow: create peer → verify QR displayed → verify config text matches WG format. (4) Invite link: generate invite → open in new browser → verify config displayed → verify consumed on second visit. (5) One-click expose: expose port 3000 → verify URL displayed. (6) nip.io smoke: select nip.io mode → verify no DNS steps → verify auto-subdomain format.
 **Deps**: TASK-6.4 (full integration), TASK-4.1-TASK-4.4 (frontend)
@@ -371,7 +371,7 @@
 - nip.io: no DNS steps, auto-subdomain correct
 - All tests run in CI (headless Playwright)
 
-- [ ] **TASK-7.4** [P2] | Agent: test-engineer | Est: 150 LOC | FR: FR-009
+- [X] **TASK-7.4** [P2] | Agent: test-engineer | Est: 150 LOC | FR: FR-009
 **Title**: Write nip.io smoke test + Cloudflare mock test zone validation
 **Description**: `preflight/nipio_test.go`: test nip.io subdomain resolution against live nip.io DNS (skip in CI if network unavailable). Verify `10-8-0-2.nip.io` resolves to `10.8.0.2`. Test unreachable fallback. `dnscheck/cloudflare_test.go`: `httptest` mock of Cloudflare API. Test token validation with various scope combinations. Test zone-not-found. Test DNS record read for scope verification. Test error responses match contract.
 **Deps**: TASK-3.2 (Cloudflare integration), TASK-3.3 (nip.io resolver)
