@@ -1,0 +1,12 @@
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /awg-amnezia ./cmd/awg-amnezia
+
+FROM alpine:3.21
+RUN apk add --no-cache wireguard-tools iptables ip6tables
+COPY --from=builder /awg-amnezia /usr/local/bin/awg-amnezia
+ENTRYPOINT ["awg-amnezia"]
