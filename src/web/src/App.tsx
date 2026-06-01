@@ -6,6 +6,8 @@ import TunnelsPage from './TunnelsPage'
 import PortsPage from './PortsPage'
 import SettingsPage from './SettingsPage'
 import PrivilegeOverlay from './PrivilegeOverlay'
+import { WizardProvider } from './wizard/WizardProvider.tsx'
+import WizardPage from './wizard/WizardPage.tsx'
 
 // --- Types ---
 
@@ -17,7 +19,7 @@ interface ApiStatus {
   daemonPort: number
 }
 
-type Page = 'dashboard' | 'tunnels' | 'vps' | 'ports' | 'settings'
+type Page = 'dashboard' | 'tunnels' | 'vps' | 'ports' | 'settings' | 'wizard'
 
 // --- App ---
 
@@ -57,13 +59,13 @@ function App() {
       <header className="app-header">
         <h1 className="app-title">Unet</h1>
         <nav className="app-nav">
-          {(['dashboard', 'tunnels', 'vps', 'ports', 'settings'] as const).map((p) => (
+          {(['dashboard', 'tunnels', 'vps', 'ports', 'settings', 'wizard'] as const).map((p) => (
             <span
               key={p}
               className={`nav-item${page === p ? ' active' : ''}`}
               onClick={() => setPage(p)}
             >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
+              {p === 'wizard' ? 'Setup' : p.charAt(0).toUpperCase() + p.slice(1)}
             </span>
           ))}
         </nav>
@@ -75,6 +77,11 @@ function App() {
         {page === 'vps' && <VpsConfigForm />}
         {page === 'ports' && <PortsPage />}
         {page === 'settings' && <SettingsPage />}
+        {page === 'wizard' && (
+          <WizardProvider>
+            <WizardPage />
+          </WizardProvider>
+        )}
       </main>
 
       <footer className="app-footer">
