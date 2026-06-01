@@ -1,0 +1,46 @@
+services:
+  unet-net-pause:
+    image: busybox:1.36-uclibc
+    container_name: unet-net-pause
+    command: ["sleep", "infinity"]
+    ports:
+      - "{{.AWGPort}}:{{.AWGPort}}/udp"
+      - "443:443/tcp"{{ if .ManualDNS }}
+      - "80:80/tcp"{{ end }}
+    restart: unless-stopped
+
+  unet-amnezia-awg:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: unet/amnezia-awg:local
+    container_name: unet-amnezia-awg
+    network_mode: "service:unet-net-pause"
+    depends_on:
+      - unet-net-pause
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    volumes:
+      - amnezia-awg-state:/opt/amnezia/awg
+      - /lib/modules:/lib/modules:ro
+    restart: unless-stopped
+
+  unet-caddy:
+    image: {{.CaddyImage}}
+    container_name: unet-caddy
+    network_mode: "service:unet-net-pause"
+    depends_on:
+      - unet-net-pause
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  amnezia-awg-state:
+  caddy-data:
+  caddy-config:
