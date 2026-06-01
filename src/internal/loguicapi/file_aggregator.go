@@ -101,28 +101,38 @@ func (fa *FileAggregator) tailFile(ctx context.Context, source, path string) {
 		case <-ticker.C:
 		}
 
-		// Check if file was truncated
-		stat, err := f.Stat()
-		if err != nil {
-			continue
-		}
+		// Check if file was rotated: compare on-disk file vs open fd
+		if diskStat, err := os.Stat(path); err == nil {
+			fdStat, fdErr := f.Stat()
+			if fdErr != nil || !os.SameFile(diskStat, fdStat) {
+				slog.Warn("file rotated, reopening", "source", source, "path", path)
+				f.Close()
+				f, err = os.Open(path)
+				if err != nil {
+					slog.Warn("file reopen failed", "source", source, "path", path, "error", err)
+					return
+				}
+				reader = bufio.NewReader(f)
+				lastSize = 0
+				continue
+			}
 
-		if stat.Size() < lastSize {
-			// File truncated — reset
-			slog.Warn("file truncated, resetting offset", "source", source, "path", path)
-			f.Seek(0, 0)
-			reader.Reset(f)
-			lastSize = 0
-			continue
-		}
+			if diskStat.Size() < lastSize {
+				slog.Warn("file truncated, resetting offset", "source", source, "path", path)
+				f.Seek(0, 0)
+				reader.Reset(f)
+				lastSize = 0
+				continue
+			}
 
-		lastSize = stat.Size()
+			lastSize = diskStat.Size()
+		}
 
 		// Read new lines
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				break // no more data or error
+				break
 			}
 			line = trimNewline(line)
 			if line == "" {

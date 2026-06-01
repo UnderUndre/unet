@@ -468,9 +468,7 @@ func (h *jsonHandler) asyncFreeSpace() {
 			continue
 		}
 		// Skip active file (current date)
-		if strings.Contains(entry.Name(), time.Now().UTC().Format("2006-01-02")) &&
-			!strings.Contains(entry.Name(), ".1.") &&
-			!strings.Contains(entry.Name(), ".2.") {
+		if strings.Contains(entry.Name(), time.Now().UTC().Format("2006-01-02")) {
 			continue
 		}
 

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"crypto/subtle"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -178,7 +179,7 @@ func (e *Exposer) bearerAuth(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if auth[7:] != e.bearerToken {
+		if subtle.ConstantTimeCompare([]byte(auth[7:]), []byte(e.bearerToken)) != 1 {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
