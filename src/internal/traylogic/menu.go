@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/underundre/unet/internal/platform"
 )
@@ -217,20 +218,16 @@ func openBrowser(url string) error {
 		cmd = "xdg-open"
 		args = []string{url}
 	}
-	return exec.Command(cmd, args...).Start()
+	c := exec.Command(cmd, args...)
+	if err := c.Start(); err != nil {
+		return err
+	}
+	go c.Wait() // Prevent zombie processes.
+	return nil
 }
 
 func clipboardWrite(text string) error {
-	// Windows: use clip.exe
 	cmd := exec.Command("clip")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	stdin.Write([]byte(text))
-	stdin.Close()
-	return cmd.Wait()
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
 }

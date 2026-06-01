@@ -24,8 +24,13 @@ func NewTray() Tray {
 }
 
 func (s *systrayImpl) Run(ctx context.Context) error {
+	// Ensure systray.Quit() is called when context is cancelled,
+	// otherwise the tray icon lingers in the taskbar.
+	go func() {
+		<-ctx.Done()
+		systray.Quit()
+	}()
 	systray.Run(s.onReadyFunc(ctx), s.onExitFunc())
-	<-ctx.Done()
 	return nil
 }
 

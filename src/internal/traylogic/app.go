@@ -45,7 +45,7 @@ func NewApp(version string) (*App, error) {
 	return &App{
 		version:   version,
 		tray:      platform.NewTray(),
-		notifier:  platform.NewNotifier(),
+		notifier:  newThrottledNotifier(platform.NewNotifier()),
 		monitor:   platform.NewNetworkMonitor(),
 		autostart: platform.NewAutoStart(),
 		client:    client,

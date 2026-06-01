@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -93,5 +94,5 @@ func (a *WindowsAutoStart) IsEnabled() bool {
 		stored = stored[1 : len(stored)-1]
 	}
 
-	return stored == exe
+	return strings.EqualFold(stored, exe)
 }

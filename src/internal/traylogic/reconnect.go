@@ -34,17 +34,16 @@ func (a *App) startReconnectLoop(ctx context.Context) {
 				}
 				if evt.Type == platform.NetworkReachabilityLost {
 					slog.Info("tray: network lost, starting reconnect backoff")
-					a.doReconnectBackoff(ctx)
+					a.doReconnectBackoff(ctx, events)
 				}
-				// NetworkReachabilityRestored: handled inside doReconnectBackoff.
 			}
 		}
 	}()
 }
 
 // doReconnectBackoff attempts reconnect with exponential backoff.
-// Blocks until success or context cancellation.
-func (a *App) doReconnectBackoff(ctx context.Context) {
+// Listens for network restoration events to interrupt backoff sleep.
+func (a *App) doReconnectBackoff(ctx context.Context, events <-chan platform.NetworkEvent) {
 	delay := backoffInitial
 	attempt := 0
 
@@ -83,10 +82,18 @@ func (a *App) doReconnectBackoff(ctx context.Context) {
 			a.notifier.Send("unet", "Cannot reach VPS — check network", platform.SeverityError)
 		}
 
-		// Wait with backoff.
+		// Wait with backoff, but wake early if network restores.
 		select {
 		case <-ctx.Done():
 			return
+		case evt, ok := <-events:
+			if !ok {
+				return
+			}
+			if evt.Type == platform.NetworkReachabilityRestored {
+				slog.Info("tray: network restored, attempting immediate reconnect")
+				delay = backoffInitial
+			}
 		case <-time.After(delay):
 		}
 

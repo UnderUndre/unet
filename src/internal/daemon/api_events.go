@@ -47,6 +47,7 @@ func (r *EventRing) Add(eventType, message, details string) LifecycleEvent {
 	}
 
 	if len(r.events) >= r.max {
+		r.events[0] = LifecycleEvent{} // Zero out to allow GC.
 		r.events = r.events[1:]
 	}
 	r.events = append(r.events, evt)
