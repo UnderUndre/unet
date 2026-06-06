@@ -9,46 +9,17 @@ Built on **AmneziaWG** (WireGuard fork with DPI bypass) for encrypted tunnels an
 - **One-click VPS provisioning** — SSH in, install Docker, deploy AmneziaWG + Caddy stack
 - **WireGuard tunnel** — AmneziaWG with obfuscation parameters for DPI-resistant connections
 - **Port exposure** — pick a local port + subdomain, get `https://subdomain.yourdomain.com` in ~2 seconds
+- **Control Plane API** — remote-accessible, authenticated, and audited API for programmatic management (routes, peers, tunnel status)
+- **VPS Lifecycle Management** — automated bootstrap, health probing, drift detection, migration, and encrypted state backups
+- **Observability** — structured logging, SSE log streaming, container log aggregation, and Prometheus metrics
 - **Dashboard** — live tunnel status, exposed ports, DNS configuration
-- **mTLS** — mutual TLS between daemon and Caddy admin API; no unauthenticated route manipulation
+- **mTLS** — mutual TLS between daemon and Caddy admin API
 - **DNS modes** — Cloudflare API (auto A-record + wildcard cert) or manual DNS
-- **Drift detection** — daemon detects VPS-side config changes and warns with re-sync option
 - **Secret redaction** — all secrets masked in logs and API responses (`****last4`)
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Your Machine                         │
-│                                                             │
-│  ┌─────────────┐    ┌──────────────┐    ┌───────────────┐  │
-│  │  React UI    │◄──►│  Go Daemon   │───►│  AmneziaWG    │  │
-│  │  :8080       │    │  (localhost)  │    │  (awg-quick)  │  │
-│  └─────────────┘    └──────┬───────┘    └───────┬───────┘  │
-│                             │ mTLS               │ WireGuard │
-│                             │                    │ tunnel    │
-└─────────────────────────────┼────────────────────┼───────────┘
-                              │                    │
-                              ▼                    ▼
-┌─────────────────────────────────────────────────────────────┐
-│                          VPS                                │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Docker Compose                           │   │
-│  │                                                      │   │
-│  │  ┌──────────────┐         ┌─────────────────────┐   │   │
-│  │  │  Caddy        │────────►│  AmneziaWG (awg0)   │   │   │
-│  │  │  :80/:443    │  route  │  :51820/udp          │   │   │
-│  │  │  auto HTTPS  │         │  10.8.0.1            │   │   │
-│  │  └──────────────┘         └─────────────────────┘   │   │
-│  │         ▲                    shared network ns       │   │
-│  │         │                                            │   │
-│  └─────────┼────────────────────────────────────────────┘   │
-│            │                                                │
-│         internet                                           │
-│    subdomain.yourdomain.com ──► Caddy ──► tunnel ──► you   │
-└─────────────────────────────────────────────────────────────┘
-```
+See [architecture.md](specs/main/architecture.md) for detailed diagrams and subsystem breakdowns.
 
 ## Prerequisites
 
@@ -57,7 +28,7 @@ Built on **AmneziaWG** (WireGuard fork with DPI bypass) for encrypted tunnels an
 | **AmneziaWG client** | `awg-quick` must be on PATH. Download from [amnezia.org](https://amnezia.org/) |
 | **Administrator/root** | WireGuard needs elevated privileges to create network interfaces |
 | **VPS** (Ubuntu 20.04+) | With SSH access; Docker is installed automatically |
-| **Go 1.22+** | Building the daemon |
+| **Go 1.25+** | Building the daemon |
 | **Node.js 20+** | Building the React frontend |
 | **Cloudflare account** | Optional. API token with `Zone:Read + DNS:Edit` for auto-DNS |
 
@@ -129,6 +100,7 @@ make clean        # Remove build artifacts
 - **File permissions** — `~/.unet/` files created with `0600` (POSIX) or owner-only ACLs (Windows)
 - **Secret redaction** — passwords, keys, and tokens masked to `****<last4>` in logs and API responses
 - **Localhost-only** — daemon binds `127.0.0.1` by default; no remote access to control API
+- **Control Plane Auth** — API tokens with scoped permissions (`read`/`write`/`admin`)
 - **SSH** — VPS managed exclusively over SSH (key or password auth)
 
 ## License
