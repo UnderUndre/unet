@@ -1,1 +1,5 @@
 amneziawg-go
+
+# clai-helpers (auto-managed by `clai-helpers init`)
+# staging directory for atomic writes
+.helpers/
