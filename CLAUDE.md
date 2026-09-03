@@ -213,7 +213,7 @@ npm run dev           # tsc --watch
 # Edit source of truth: .claude/commands/*.md, .claude/agents/*.md, .claude/skills/<name>/SKILL.md, CLAUDE.md
 npx clai-helpers sync                              # transpile to Copilot + Gemini
 npx clai-helpers status --strict                  # check drift (CI-friendly, exit 2 if mismatch)
-npx clai-helpers init --source github:UnderUndre/ai  # fresh install in consumer repo
+npx clai-helpers init --source github:UnderUndre/underoute-clai  # fresh install in consumer repo
 ```
 
 ### Release (CLI versioning)

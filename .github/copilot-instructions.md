@@ -49,21 +49,21 @@ Full table (key skills + cross-domain escalation): [`.github/instructions/coding
 
 **Map user utterances → first action.** Prefer the prescribed command over improvising; if unsure → `/dispatch <request>`. Don't double-route (typing `/fix-ci` directly IS the dispatch).
 
-| User says (RU/EN) | First action |
-| --- | --- |
-| "brainstorm X", "обкашляю X" | `/brainstorm X` |
-| "find holes", "найди дыры", "devil's advocate" | `/questions_ideas` |
-| "fix bug", "не работает", "сломалось" | spawn `debugger` + `systematic-debugging` |
-| "implement X" (>3 files OR new domain) | `/speckit.start → .full-spec → .full-plan → .implement` |
-| "implement X" (≤3 files, in-domain) | identify domain → spawn agent → Plumber's Loop |
-| "review", "code review", "ревью" | spawn `code-reviewer` OR `/code_review` |
-| "tests failing", "тесты упали" | `/fix-tests` |
-| "CI failing", "CI упал" | `/fix-ci` |
-| "TS errors", "тайпы сломаны" | `/fix-types` |
-| "merge conflicts", "конфликты" | `/resolve-conflicts` |
-| "ship", "release", "релиз" | `/bump` → confirm → publish |
-| "verify", "проверь всё" | `/verify` |
-| "session-end", "запомни" | `/improve` (manual) OR Stop hook |
+| User says (RU/EN)                              | First action                                            |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| "brainstorm X", "обкашляю X"                   | `/brainstorm X`                                         |
+| "find holes", "найди дыры", "devil's advocate" | `/questions_ideas`                                      |
+| "fix bug", "не работает", "сломалось"          | spawn `debugger` + `systematic-debugging`               |
+| "implement X" (>3 files OR new domain)         | `/speckit.start → .full-spec → .full-plan → .implement` |
+| "implement X" (≤3 files, in-domain)            | identify domain → spawn agent → Plumber's Loop          |
+| "review", "code review", "ревью"               | spawn `code-reviewer` OR `/code_review`                 |
+| "tests failing", "тесты упали"                 | `/fix-tests`                                            |
+| "CI failing", "CI упал"                        | `/fix-ci`                                               |
+| "TS errors", "тайпы сломаны"                   | `/fix-types`                                            |
+| "merge conflicts", "конфликты"                 | `/resolve-conflicts`                                    |
+| "ship", "release", "релиз"                     | `/bump` → confirm → publish                             |
+| "verify", "проверь всё"                        | `/verify`                                               |
+| "session-end", "запомни"                       | `/improve` (manual) OR Stop hook                        |
 
 Two principles: (1) **don't improvise when a command exists** — the command's prompt is the source of truth; (2) **don't double-route**. Full mapping + examples: [`.github/prompts/dispatch.prompt.md`](.github/prompts/dispatch.prompt.md).
 
@@ -97,7 +97,7 @@ npm run dev           # tsc --watch
 # Edit source of truth: .claude/commands/*.md, .claude/agents/*.md, .claude/skills/<name>/SKILL.md, CLAUDE.md
 npx clai-helpers sync                              # transpile to Copilot + Gemini
 npx clai-helpers status --strict                  # check drift (CI-friendly, exit 2 if mismatch)
-npx clai-helpers init --source github:UnderUndre/ai  # fresh install in consumer repo
+npx clai-helpers init --source github:UnderUndre/underoute-clai  # fresh install in consumer repo
 ```
 
 ### Release (CLI versioning)
@@ -124,21 +124,21 @@ See [`.claude/skills/semver-versioning/SKILL.md`](.claude/skills/semver-versioni
 
 ## Project Reference (read on demand)
 
-| Domain                 | File                                                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Architecture**       | [`specs/main/architecture.md`](specs/main/architecture.md) — topography, source-of-truth tree, data flow                       |
-| **Requirements**       | [`specs/main/requirements.md`](specs/main/requirements.md) — functional + non-functional + repo rules                          |
-| **Coding Standards**   | [`.github/instructions/coding/copilot-instructions.md`](.github/instructions/coding/copilot-instructions.md) (v2.0.0)          |
-| **Commit Conventions** | [`.github/instructions/coding/git/copilot-instructions.md`](.github/instructions/coding/git/copilot-instructions.md)           |
-| **Persona (base)**     | [`.github/instructions/persona/copilot-instructions.md`](.github/instructions/persona/copilot-instructions.md)                 |
-| **Persona phrases**    | [`.github/instructions/persona/phrases/copilot-instructions.md`](.github/instructions/persona/phrases/copilot-instructions.md) |
-| **Release / SemVer**   | [`.claude/skills/semver-versioning/SKILL.md`](.claude/skills/semver-versioning/SKILL.md)                                       |
+| Domain                 | File                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Architecture**       | [`specs/main/architecture.md`](specs/main/architecture.md) — topography, source-of-truth tree, data flow                            |
+| **Requirements**       | [`specs/main/requirements.md`](specs/main/requirements.md) — functional + non-functional + repo rules                               |
+| **Coding Standards**   | [`.github/instructions/coding/copilot-instructions.md`](.github/instructions/coding/copilot-instructions.md) (v2.0.0)               |
+| **Commit Conventions** | [`.github/instructions/coding/git/copilot-instructions.md`](.github/instructions/coding/git/copilot-instructions.md)                |
+| **Persona (base)**     | [`.github/instructions/persona/copilot-instructions.md`](.github/instructions/persona/copilot-instructions.md)                      |
+| **Persona phrases**    | [`.github/instructions/persona/phrases/copilot-instructions.md`](.github/instructions/persona/phrases/copilot-instructions.md)      |
+| **Release / SemVer**   | [`.claude/skills/semver-versioning/SKILL.md`](.claude/skills/semver-versioning/SKILL.md)                                            |
 | **Code hygiene**       | [`.claude/skills/ai-engineering-hygiene/SKILL.md`](.claude/skills/ai-engineering-hygiene/SKILL.md) — codegen + prompt anti-patterns |
-| **README (EN)**        | [`README.md`](README.md) · **RU**: [`README.ru.md`](README.ru.md)                                                              |
-| **Contributing**       | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                           |
-| **CLI package docs**   | [`packages/cli/README.md`](packages/cli/README.md)                                                                             |
-| **Feature specs**      | `specs/<feature-slug>/spec.md`, `plan.md`, `tasks.md`                                                                          |
-| **Constitution**       | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v1.5.0) — governance principles only                     |
+| **README (EN)**        | [`README.md`](README.md) · **RU**: [`README.ru.md`](README.ru.md)                                                                   |
+| **Contributing**       | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                |
+| **CLI package docs**   | [`packages/cli/README.md`](packages/cli/README.md)                                                                                  |
+| **Feature specs**      | `specs/<feature-slug>/spec.md`, `plan.md`, `tasks.md`                                                                               |
+| **Constitution**       | [`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v1.5.0) — governance principles only                          |
 
 ---
 

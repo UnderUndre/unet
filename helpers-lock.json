@@ -2,7 +2,7 @@
   "schema": 1,
   "toolVersion": "0.1.0",
   "source": {
-    "url": "github:UnderUndre/under-ai-helpers",
+    "url": "github:UnderUndre/underoute-clai",
     "ref": "latest",
     "commit": "716a30d1b8b7e7d62e74ab056d0c626c96b79145"
   },
