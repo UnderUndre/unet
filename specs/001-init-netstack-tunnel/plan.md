@@ -16,7 +16,7 @@ Primary acceptance: binary runs rootless on Windows/macOS/Linux, meets router-cl
 
 ## Technical Context
 
-**Language/Version**: Go (1.20+).  
+**Language/Version**: Go (1.25.0 floor — `go.mod` of the inherited amneziawg-go base requires it; zcode F12).  
 **Primary Dependencies**: `amneziawg-go` (local), `gVisor netstack` (`tun/netstack`), `hashicorp/yamux`.  
 **Storage**: Local JSON config for WireGuard keys and peer coordinates (path via `--config` or env).  
 **Testing**: `go test` (unit), integration harness that exercises loopback tunnel and yamux; benchmark harness for throughput/memory.  
@@ -47,6 +47,8 @@ repos/unet/
 ```
 
 **Structure Decision**: Single repository binary. Embed `tun/netstack` as an internal package compiled into the binary.
+
+**Repo-layout disposition (zcode F12)**: the inherited root `main.go` / `main_windows.go` / `Makefile` / `Dockerfile*` build the upstream-compatible `amneziawg-go` daemon and STAY untouched; the unet CLI is NEW code under `cmd/unet/` (quickstart build path). `outline/` stays (Outline SDK transport experiments, upstream glue #106) — out of 001 scope, evaluated separately later.
 
 ## Phase 0 — Research (short)
 

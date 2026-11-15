@@ -29,10 +29,10 @@ This writes `config.json` with `0600` / owner-only permissions (FR-008.002).
 
 Fill in the remote `peer` (public key, `endpoint`, `allowed_ips`), `obfuscation` params, and DNS mode per `contracts/config.schema.json`:
 
-- `resolution_mode: "remote"` forwards proxied hostnames to the exit for resolution.
-- `resolution_mode: "tunnel_dns"` requires at least one tunnel-side resolver IP in `dns`.
+- `local_addresses` (required): THIS client's tunnel-side IP(s), e.g. `["10.66.0.2/32"]` — must be covered by the server-side `[Peer] AllowedIPs` for this client (zcode F1: `CreateNetTUN(localAddresses, …)` needs them, otherwise the netstack NIC has no routes).
+- `resolution_mode` is `"tunnel_dns"` only in v1: names resolve via the tunnel-side `dns` resolver IPs (e.g. the gateway's tailnet dnsmasq at `10.66.0.1`). There is no `remote` mode — see FR-009 / zcode F2.
 
-Set a finite reconnect terminal condition (`max_total_duration_ms` or `max_attempts`) unless you explicitly choose `retry_forever: true` and accept degraded health while retrying.
+Set a finite reconnect terminal condition (`max_total_duration_ms` or `max_attempts`) unless you explicitly choose `retry_forever: true` and accept degraded health while retrying (the schema enforces the mutual exclusion — zcode F7).
 
 ## 3. Verify / fix permissions
 
@@ -107,6 +107,6 @@ Add an allow-list entry (default-deny — nothing is forwarded without it):
 
 Requests to the gateway's public port 443 are forwarded to local `127.0.0.1:3000`; any other target is rejected.
 
-The public Caddy/gateway side must implement the contract in `contracts/interfaces.md`: route public host/port to the active client session, validate route ownership and optional capability token, then open the yamux stream. Test negative cases for no active session, token mismatch, and unlisted port before exposing it publicly.
+The public Caddy/gateway side must implement the contract in `contracts/interfaces.md`: three listeners (yamux on the tailnet address, ingress on loopback fed by Caddy, admin on loopback — §4.1), length-prefixed wire framing (§2.0), authoritative route table (§4.3), then open the yamux stream. Test negative cases for no active session, token mismatch, and unlisted port before exposing it publicly.
 
 *End of Quickstart.*

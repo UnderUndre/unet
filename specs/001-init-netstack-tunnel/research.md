@@ -66,13 +66,13 @@ This document records the Phase 0 decisions that the plan and success criteria d
 
 ## R5 — MTU / MSS in nested encapsulation (basis for FR-010)
 
-**Decision**: Compute a safe default tunnel MTU that subtracts, from the path MTU, the UDP+IP outer header, the WireGuard/AmneziaWG data header, and the AmneziaWG obfuscation overhead (`S1`/`S2` padding, `H1-H4`). Apply **TCP MSS clamping** on the netstack interface so in-tunnel TCP never negotiates an MSS that forces fragmentation.
+**Decision**: Compute a safe default tunnel MTU that subtracts, from the path MTU, the UDP+IP outer header (20 IP + 8 UDP), the WireGuard data header (32), and the **S4 transport padding** (zcode F9 erratum: `S1`/`S2` are handshake-only paddings and do NOT affect the data path; `H1-H4` replace header values, not add bytes). gVisor netstack TERMINATES in-tunnel TCP and derives MSS from the NIC MTU — there is no SYN clamping to configure; the MTU value IS the MSS control (schema caps `mtu` at 1420).
 
 **Rationale**:
 - Standard WireGuard uses MTU 1420 (1500 − 80). AmneziaWG padding/junk adds variable overhead, so the safe MTU is **lower** and depends on obfuscation params — a wrong value silently blackholes or fragments large packets and tanks throughput, directly undermining SC-004. This is why FR-010 mandates a configurable MTU + MSS clamp and why T6 must include large-transfer/fragmentation cases.
 - yamux-in-WG means the effective payload for a reverse-forward stream is further reduced by the yamux framing; MSS clamping at the netstack edge is the robust fix rather than trusting PMTUD across a user-space stack.
 
-**Open item**: exact default MTU is **[ESTIMATE]** until measured against representative `S1/S2/Jmax` defaults in T6.
+**Open item**: exact default MTU is **[ESTIMATE]** until measured against representative `S4/Jmax` defaults in T6.
 
 **Alternatives considered**: rely on PMTUD (rejected — unreliable across user-space netstack + obfuscated UDP, ICMP often filtered); fixed 1280 (safe but leaves throughput on the table — use as the conservative fallback only).
 
