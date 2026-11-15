@@ -118,3 +118,15 @@ Deliver minimal v1 binary that: embeds netstack, exposes SOCKS5/HTTP loopback (n
 | SC-006 (no DNS leak) | T7 |
 
 ## Total task count: 9 (T1–T8 + T3a; FR-011/FR-012 relocated to 003-ecosystem-integration)
+
+## Task Status (speckit.implement, 2026-11-16)
+
+- [X] T1 — gVisor bump (`go` branch `20261115`, API drift zero), `internal/config` loader (strict validation, owner-only perms POSIX+Windows ACL, env refs, defaults), `internal/engine` bootstrap (netstack + IpcSet, hex keys), `cmd/unet` CLI (`--config/--insecure-permissions/--version`, exit codes 2/3). Full suite 10/10 green incl. upstream `TestFormatting`.
+- [ ] T2 — Local SOCKS5/HTTP proxy (in-tunnel DNS, demux, hop-by-hop stripping)
+- [ ] T3 — Yamux reverse-forward client (wire framing §2.0)
+- [ ] T4 — Key provisioning & config writer (auto-keygen, SaveOwnerOnly)
+- [ ] T5 — Reconnect strategy (two-level, terminal give-up, IPC §5)
+- [ ] T6 — Benchmark harness (MTU sweep, RSS/concurrency)
+- [ ] T7 — Integration tests & CI (DPI classifier, DNS-leak, log-hygiene scan)
+- [ ] T3a — Reference gateway (three listeners, authoritative routes, revoke)
+- [ ] T8 — Quickstart & release packaging

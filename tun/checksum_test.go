@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-
-	"golang.org/x/sys/unix"
 )
+
+// tcpProtocol mirrors tcpProtocol (=6); x/sys/unix does not define it on
+// Windows builds, and the value is a fixed protocol constant (FR-032: tests
+// must build on all dev hosts).
+const tcpProtocol = 6
 
 func checksumRef(b []byte, initial uint16) uint16 {
 	ac := uint64(initial)
@@ -58,9 +61,9 @@ func TestPseudoHeaderChecksum(t *testing.T) {
 			rng.Read(srcAddr)
 			rng.Read(dstAddr)
 			rng.Read(buf)
-			phSum := pseudoHeaderChecksumNoFold(unix.IPPROTO_TCP, srcAddr, dstAddr, uint16(length))
+			phSum := pseudoHeaderChecksumNoFold(tcpProtocol, srcAddr, dstAddr, uint16(length))
 			csum := checksum(buf, phSum)
-			phSumRef := pseudoHeaderChecksumRefNoFold(unix.IPPROTO_TCP, srcAddr, dstAddr, uint16(length))
+			phSumRef := pseudoHeaderChecksumRefNoFold(tcpProtocol, srcAddr, dstAddr, uint16(length))
 			csumRef := checksumRef(buf, phSumRef)
 			if csum != csumRef {
 				t.Error("Expected checksumRef", csumRef, "got", csum)

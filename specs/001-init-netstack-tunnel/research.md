@@ -21,6 +21,8 @@ This document records the Phase 0 decisions that the plan and success criteria d
 
 **Alternatives considered**: kernel WireGuard + `wintun` (rejected — requires driver install / admin, violates rootless); `wireguard-go` with OS TUN (rejected — still needs elevated TUN creation on most platforms).
 
+**T1 bump record (2026-11-16)**: `gvisor.dev/gvisor` bumped `v0.0.0-20231202080848` → `v0.0.0-20261115194629-aedde05561d6` (the maintainer-sanctioned **`go` branch**, per gVisor issue [#11600](https://github.com/google/gvisor/issues/11600): raw master is un-consumable via Go modules since 2024-06 — `pkg/tcpip/stack/bridge_test.go` declares a foreign test-package name, breaking `go build` for all consumers; verified on master 2026-11-15/16). API drift for amneziawg-go's usage (`device`, `tun/netstack`, `conn`, `outline`): **zero** — full suite green without code changes. Upstream test debt fixed: `tun/checksum_test.go` used `unix.IPPROTO_TCP` (undefined on Windows x/sys) → local `tcpProtocol = 6` const (FR-032). Go toolchain floor: 1.25.0 (go.mod); dev host built with 1.27.4. No RSS/throughput budget delta measured yet — T6 re-anchors.
+
 ---
 
 ## R2 — AmneziaWG obfuscation parameters

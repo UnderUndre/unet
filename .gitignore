@@ -3,3 +3,14 @@ amneziawg-go
 # clai-helpers (auto-managed by `clai-helpers init`)
 # staging directory for atomic writes
 .helpers/
+
+# Go build artifacts (Go tech patterns, speckit.implement step 8)
+*.exe
+*.exe~
+*.test
+*.out
+*.prof
+vendor/
+unet
+unet-gateway
+coverage.txt
