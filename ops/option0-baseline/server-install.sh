@@ -37,13 +37,25 @@ mkdir -p /opt/awg-src && cd /opt/awg-src
 [[ -d amneziawg-tools ]] || git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools
 echo ">> building amneziawg-go"
 ( cd amneziawg-go && make )
-echo ">> building amneziawg-tools"   # [VERIFY 1] binary names: assumed src/awg + src/awg-quick
+echo ">> building amneziawg-tools"   # [VERIFY 1 resolved 2026-11-16 on ufo-finland: builds wg/wg-quick]
 ( cd amneziawg-tools/src && make )
 install -m 0755 amneziawg-go/amneziawg-go /usr/local/bin/
-install -m 0755 amneziawg-tools/src/awg /usr/local/bin/
-install -m 0755 amneziawg-tools/src/awg-quick /usr/local/bin/
+# Binary names vary by repo tag: pick whatever the build produced, install as awg/awg-quick.
+if   [[ -f amneziawg-tools/src/awg ]];       then WGBIN=awg
+elif [[ -f amneziawg-tools/src/wg ]];        then WGBIN=wg
+else
+  echo "ERROR: neither awg nor wg built in amneziawg-tools/src:"; ls amneziawg-tools/src; exit 1
+fi
+if   [[ -f amneziawg-tools/src/awg-quick ]]; then QKBIN=awg-quick
+elif [[ -f amneziawg-tools/src/wg-quick ]]; then QKBIN=wg-quick
+else
+  echo "ERROR: neither awg-quick nor wg-quick built:"; ls amneziawg-tools/src; exit 1
+fi
+echo ">> tools binaries detected: ${WGBIN} + ${QKBIN} -> installing as awg/awg-quick"
+install -m 0755 "amneziawg-tools/src/${WGBIN}" /usr/local/bin/awg
+install -m 0755 "amneziawg-tools/src/${QKBIN}" /usr/local/bin/awg-quick
 command -v awg >/dev/null && command -v awg-quick >/dev/null && command -v amneziawg-go >/dev/null \
-  || { echo "ERROR: expected binaries missing after build — check [VERIFY 1] in README.md"; exit 1; }
+  || { echo "ERROR: expected binaries missing after install — check [VERIFY 1] in README.md"; exit 1; }
 
 # ---------------------------------------------------------------- keys + obfuscation params
 SERVER_PRIV="$(awg genkey)"
