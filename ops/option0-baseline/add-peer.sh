@@ -30,12 +30,12 @@ CLIENT_PUB="$(printf '%s' "${CLIENT_PRIV}" | awg pubkey)"
 PSK="$(awg genpsk)"
 
 # --- copy session-shaping params from the server conf (S1/S2/H1-H4 MUST match, per README)
-S1="$(awk -F'= ' '$1 ~ /^S1$/{print $2}' "${CONF}")"
-S2="$(awk -F'= ' '$1 ~ /^S2$/{print $2}' "${CONF}")"
-H1="$(awk -F'= ' '$1 ~ /^H1$/{print $2}' "${CONF}")"
-H2="$(awk -F'= ' '$1 ~ /^H2$/{print $2}' "${CONF}")"
-H3="$(awk -F'= ' '$1 ~ /^H3$/{print $2}' "${CONF}")"
-H4="$(awk -F'= ' '$1 ~ /^H4$/{print $2}' "${CONF}")"
+S1="$(awk '/^S1 =/{print $3}' "${CONF}")"
+S2="$(awk '/^S2 =/{print $3}' "${CONF}")"
+H1="$(awk '/^H1 =/{print $3}' "${CONF}")"
+H2="$(awk '/^H2 =/{print $3}' "${CONF}")"
+H3="$(awk '/^H3 =/{print $3}' "${CONF}")"
+H4="$(awk '/^H4 =/{print $3}' "${CONF}")"
 for v in S1 S2 H1 H2 H3 H4; do [[ -n "${!v}" ]] || { echo "ERROR: cannot read ${v} from server conf"; exit 1; }; done
 
 # --- endpoint

@@ -122,7 +122,7 @@ Deliver minimal v1 binary that: embeds netstack, exposes SOCKS5/HTTP loopback (n
 ## Task Status (speckit.implement, 2026-11-16)
 
 - [X] T1 — gVisor bump (`go` branch `20261115`, API drift zero), `internal/config` loader (strict validation, owner-only perms POSIX+Windows ACL, env refs, defaults), `internal/engine` bootstrap (netstack + IpcSet, hex keys), `cmd/unet` CLI (`--config/--insecure-permissions/--version`, exit codes 2/3). Full suite 10/10 green incl. upstream `TestFormatting`.
-- [ ] T2 — Local SOCKS5/HTTP proxy (in-tunnel DNS, demux, hop-by-hop stripping)
+- [X] T2 — Local SOCKS5/HTTP proxy (in-tunnel DNS, demux, hop-by-hop stripping) — commit 00e9d41; 5/5 proxy tests; wired into cmd/unet
 - [ ] T3 — Yamux reverse-forward client (wire framing §2.0)
 - [ ] T4 — Key provisioning & config writer (auto-keygen, SaveOwnerOnly)
 - [ ] T5 — Reconnect strategy (two-level, terminal give-up, IPC §5)

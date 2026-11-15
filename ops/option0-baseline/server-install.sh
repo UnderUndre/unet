@@ -48,8 +48,9 @@ else
 fi
 if   [[ -f amneziawg-tools/src/awg-quick ]]; then QKBIN=awg-quick
 elif [[ -f amneziawg-tools/src/wg-quick ]]; then QKBIN=wg-quick
+elif [[ -f amneziawg-tools/src/wg-quick/linux.bash ]]; then QKBIN="wg-quick/linux.bash" # [VERIFY 2 resolved 2026-11-16: linux.bash honours WG_QUICK_USERSPACE_IMPLEMENTATION, default amneziawg-go]
 else
-  echo "ERROR: neither awg-quick nor wg-quick built:"; ls amneziawg-tools/src; exit 1
+  echo "ERROR: no quick tool built (awg-quick / wg-quick / wg-quick/linux.bash):"; ls amneziawg-tools/src; exit 1
 fi
 echo ">> tools binaries detected: ${WGBIN} + ${QKBIN} -> installing as awg/awg-quick"
 install -m 0755 "amneziawg-tools/src/${WGBIN}" /usr/local/bin/awg
@@ -75,42 +76,26 @@ while [[ "${H4}" == "${H1}" || "${H4}" == "${H2}" || "${H4}" == "${H3}" ]]; do H
 echo 'net.ipv4.ip_forward = 1' > /etc/sysctl.d/99-awg-forward.conf
 sysctl --system >/dev/null
 
-# ---------------------------------------------------------------- in-tunnel DNS resolver (FR-009 / zcode F2)
-# Client configs set DNS=10.66.0.1 (resolution_mode=tunnel_dns): names must resolve
-# THROUGH the tunnel, so a resolver MUST live on the VPS tailnet address.
-cat > /etc/dnsmasq.d/unet-tailnet.conf <<'DNSEOF'
-# unet Option 0: tunnel-side resolver bound to the AWG tailnet address ONLY
-listen-address=10.66.0.1
-bind-interfaces
-no-resolv
-server=1.1.1.1
-server=8.8.8.8
-cache-size=1000
-no-hosts
-DNSEOF
-systemctl restart dnsmasq
 
+mkdir -p /etc/amnezia/amneziawg /root/unet-peers
 # ---------------------------------------------------------------- firewall helper (idempotent, replay-safe)
-cat > /etc/amneziawg/firewall.sh <<'FWEOF'
+cat > /etc/amnezia/amneziawg/firewall.sh <<'FWEOF'
 #!/usr/bin/env bash
-# Called by awg-quick PostUp/PostDown. Idempotent (-C before -A). Replays exposed-port DNATs.
+# Called by awg-quick PostUp/PostDown with a single action arg (up|down).
+# WAN_IF/TAILNET/IFACE are baked at install time (the awg-quick fork does not
+# substitute shell vars or %i in PostUp — verified on ufo-finland 2026-11-16).
 set -u
-WAN_IF="$1"; ACTION="$2"; TAILNET="$3"; IFACE="$4"
-RULES_FILE="/etc/amneziawg/expose.rules"
-add() { iptables "$@" 2>/dev/null || true; }        # quiet idempotent add (-C check done by caller idiom)
+WAN_IF="__WAN_IF__"
+TAILNET="__TAILNET__"
+IFACE="awg0"
+RULES_FILE="/etc/amnezia/amneziawg/expose.rules"
 up() {
   iptables -t nat -N UNET-EXPOSE 2>/dev/null || iptables -t nat -F UNET-EXPOSE
-  iptables -t nat -C PREROUTING -i "${WAN_IF}" -j UNET-EXPOSE 2>/dev/null || \
-    iptables -t nat -A PREROUTING -i "${WAN_IF}" -j UNET-EXPOSE
+  iptables -t nat -C PREROUTING -i "${WAN_IF}" -j UNET-EXPOSE 2>/dev/null ||     iptables -t nat -A PREROUTING -i "${WAN_IF}" -j UNET-EXPOSE
   iptables -C FORWARD -i "${IFACE}" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "${IFACE}" -j ACCEPT
-  iptables -C FORWARD -o "${IFACE}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
-    iptables -A FORWARD -o "${IFACE}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-  # DNAT'ed public traffic into the tailnet:
-  iptables -C FORWARD -o "${IFACE}" -m conntrack --ctstate DNAT -j ACCEPT 2>/dev/null || \
-    iptables -A FORWARD -o "${IFACE}" -m conntrack --ctstate DNAT -j ACCEPT
-  iptables -t nat -C POSTROUTING -s "${TAILNET}" -o "${WAN_IF}" -j MASQUERADE 2>/dev/null || \
-    iptables -t nat -A POSTROUTING -s "${TAILNET}" -o "${WAN_IF}" -j MASQUERADE
-  # replay persisted expose rules (lines contain bare rule args, e.g. "-p tcp --dport 8080 -j DNAT ...")
+  iptables -C FORWARD -o "${IFACE}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null ||     iptables -A FORWARD -o "${IFACE}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+  iptables -C FORWARD -o "${IFACE}" -m conntrack --ctstate DNAT -j ACCEPT 2>/dev/null ||     iptables -A FORWARD -o "${IFACE}" -m conntrack --ctstate DNAT -j ACCEPT
+  iptables -t nat -C POSTROUTING -s "${TAILNET}" -o "${WAN_IF}" -j MASQUERADE 2>/dev/null ||     iptables -t nat -A POSTROUTING -s "${TAILNET}" -o "${WAN_IF}" -j MASQUERADE
   if [[ -f "${RULES_FILE}" ]]; then
     while IFS= read -r rule; do
       [[ -z "${rule}" ]] && continue
@@ -122,19 +107,21 @@ down() {
   iptables -t nat -D PREROUTING -i "${WAN_IF}" -j UNET-EXPOSE 2>/dev/null || true
   iptables -t nat -F UNET-EXPOSE 2>/dev/null || true
 }
-case "${ACTION}" in
+case "${1:-}" in
   up)   up ;;
   down) down ;;
-  *) echo "usage: firewall.sh <up|down> <wan_if> <tailnet> <iface>"; exit 1 ;;
+  *) echo "usage: firewall.sh <up|down>"; exit 1 ;;
 esac
 FWEOF
-chmod 0700 /etc/amneziawg/firewall.sh
+sed -i "s|__WAN_IF__|${WAN_IF}|;s|__TAILNET__|${TAILNET}|" /etc/amnezia/amneziawg/firewall.sh
+chmod 0700 /etc/amnezia/amneziawg/firewall.sh
+chmod 0700 /etc/amnezia/amneziawg/firewall.sh
 
 # ---------------------------------------------------------------- server conf
-mkdir -p /etc/amneziawg /root/unet-peers
-: > /etc/amneziawg/expose.rules
+mkdir -p /etc/amnezia/amneziawg /root/unet-peers
+: > /etc/amnezia/amneziawg/expose.rules
 umask 077
-cat > /etc/amneziawg/awg0.conf <<EOF
+cat > /etc/amnezia/amneziawg/awg0.conf <<EOF
 [Interface]
 Address = 10.66.0.1/24
 ListenPort = ${AWG_PORT}
@@ -147,12 +134,12 @@ H2 = ${H2}
 H3 = ${H3}
 H4 = ${H4}
 
-PostUp = /etc/amneziawg/firewall.sh up ${WAN_IF} ${TAILNET} %i
-PostDown = /etc/amneziawg/firewall.sh down ${WAN_IF} ${TAILNET} %i
+PostUp = /etc/amnezia/amneziawg/firewall.sh up
+PostDown = /etc/amnezia/amneziawg/firewall.sh down
 EOF
 
-printf '%s\n' "${SERVER_PUB}" > /etc/amneziawg/server.pub
-printf 'VPS_PUBLIC_IP=%s\nAWG_PORT=%s\n' "${WAN_IP}" "${AWG_PORT}" > /etc/amneziawg/endpoint.env
+printf '%s\n' "${SERVER_PUB}" > /etc/amnezia/amneziawg/server.pub
+printf 'VPS_PUBLIC_IP=%s\nAWG_PORT=%s\n' "${WAN_IP}" "${AWG_PORT}" > /etc/amnezia/amneziawg/endpoint.env
 
 # ---------------------------------------------------------------- systemd unit
 # [VERIFY 2] relies on awg-quick inheriting wireguard-tools' userspace-launch env.
@@ -176,15 +163,29 @@ systemctl daemon-reload
 systemctl enable awg-quick@awg0.service
 systemctl start awg-quick@awg0.service
 
+# ---------------------------------------------------------------- in-tunnel DNS resolver (FR-009 / zcode F2)
+# bind-dynamic: attaches to 10.66.0.1 as soon as awg0 exists (no chicken-egg).
+cat > /etc/dnsmasq.d/unet-tailnet.conf <<'DNSEOF'
+# unet Option 0: tunnel-side resolver bound to the AWG tailnet address ONLY
+listen-address=10.66.0.1
+bind-dynamic
+no-resolv
+server=1.1.1.1
+server=8.8.8.8
+cache-size=1000
+no-hosts
+DNSEOF
+systemctl restart dnsmasq || echo "WARN: dnsmasq did not start — DNS=10.66.0.1 on clients will fail until it does"
+
 # ---------------------------------------------------------------- fallback unit (only if [VERIFY 2] fails)
-cat > /etc/amneziawg/awg0.userspace-fallback.service <<'FBEOF'
+cat > /etc/amnezia/amneziawg/awg0.userspace-fallback.service <<'FBEOF'
 # If "awg-quick up" fails with a kernel-interface error (no WG_QUICK_USERSPACE_IMPLEMENTATION
 # support in your awg-tools build), disable the unit above and use this one instead:
 #   1) systemctl disable --now awg-quick@awg0
 #   2) cp awg0.userspace-fallback.service /etc/systemd/system/awg0.service && systemctl daemon-reload
 #   3) systemctl enable --now awg0
-#   4) apply config manually:  awg setconf awg0 /etc/amneziawg/awg0.conf && ip addr add 10.66.0.1/24 dev awg0 && ip link set awg0 up
-#      (firewall: /etc/amneziawg/firewall.sh up <WAN_IF> 10.66.0.0/24 awg0)
+#   4) apply config manually:  awg setconf awg0 /etc/amnezia/amneziawg/awg0.conf && ip addr add 10.66.0.1/24 dev awg0 && ip link set awg0 up
+#      (firewall: /etc/amnezia/amneziawg/firewall.sh up)
 [Unit]
 Description=AmneziaWG userspace daemon (amneziawg-go -f awg0)
 After=network-online.target

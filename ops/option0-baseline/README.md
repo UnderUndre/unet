@@ -86,15 +86,15 @@ rm -rf /etc/amneziawg /etc/systemd/system/awg-quick@awg0.service /opt/awg-src
 sysctl -w net.ipv4.ip_forward=0
 ```
 
-## [VERIFY] markers — honest unknowns, check on first run
+## [VERIFY] markers — RESOLVED 2026-11-16 (first run on ufo-finland, Debian 13)
 
-These are the places where the upstream repos may differ from what this kit assumes. Nothing below is guessed about the protocol; they are build/packaging details:
+1. **amneziawg-tools binary names** — the repo builds `wg` + `wg-quick` (not `awg`/`awg-quick`); the script now auto-detects and installs them as `awg`/`awg-quick`.
+2. **`WG_QUICK_USERSPACE_IMPLEMENTATION`** — confirmed: `wg-quick/linux.bash` honours it and defaults to `amneziawgo-go`'s daemon name. BUT the quick tool is a DIRECTORY (`src/wg-quick/linux.bash`), and the fork reads configs from **`/etc/amnezia/amneziawg/`** (not `/etc/amneziawg/`) — both encoded in the script now.
+3. **`awg syncconf`** — available in the `wg` binary fork; used by add-peer.sh.
 
-1. **amneziawg-tools binary names** — kit assumes `src/` builds `awg` + `awg-quick`. If the build outputs differ, adjust the two `install -m 0755` lines in `server-install.sh`.
-2. **`WG_QUICK_USERSPACE_IMPLEMENTATION` env in awg-quick** — the kit assumes awg-quick inherited wireguard-tools' userspace-launch env. If `awg-quick up` tries to create a kernel `amnezia` interface instead, use the fallback unit documented in `server-install.sh` (runs `amneziawg-go -f awg0` + `awg setconf`).
-3. **`awg syncconf`** — used by `add-peer.sh` for no-downtime peer adds. If missing, the script falls back to a unit restart (brief tunnel blip, acceptable for baseline).
+## Additional battle lessons (2026-11-16, ufo-finland)
 
-## Out of scope for this kit (by design)
-
-- No key rotation, no multi-VPS, no magic DNS, no coordination API, no billing — that is exactly what 001/002/003 specs own later.
-- The VPS public SSH port and the AWG port must be open; everything else stays closed. Exposed app ports are opened only by `expose-port.sh`, one at a time, and are public by definition.
+- The awg-quick fork does NOT substitute shell vars or `%i` in PostUp/PostDown — firewall values are BAKED into `/etc/amnezia/amneziawg/firewall.sh` at install time; PostUp is argless (`up`/`down` only).
+- dnsmasq must use `bind-dynamic` (not `bind-interfaces`) — 10.66.0.1 does not exist until awg0 is up; the block also moved AFTER the tunnel start.
+- `mkdir -p /etc/amnezia/amneziawg` must precede the firewall.sh heredoc (`set -e` otherwise kills the install midway).
+- add-peer.sh parses obfuscation params with whitespace-split awk (`/^S1 =/`, `$3`), not `-F'= '`.
